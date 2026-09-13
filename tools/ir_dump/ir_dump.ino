@@ -28,6 +28,10 @@ decode_results results;
 void setup() {
   Serial.begin(115200);
   delay(500);
+  // 短いノイズ（25 bit 程度）は表示しない。三菱ACは 144 bit
+  irrecv.setUnknownThreshold(50);
+  // 受信モジュール個体差でパルス幅がずれることがあるので、許容を既定の 25% から広げる
+  irrecv.setTolerance(kTolerance + 10);
   irrecv.enableIRIn();
   Serial.println();
   Serial.println(F("=== IR ダンプ ==="));
@@ -65,6 +69,13 @@ void loop() {
     }
   } else {
     Serial.println(resultToHumanReadableBasic(&results));
+    // 解読できないときは生のパルス幅（μs）を出す。
+    // 三菱ACなら先頭が約 3400, 1750 のヘッダ、続いて約 450 のマークと
+    // 約 1300（1）または約 420（0）のスペースが 144 回、途中に約 17000 の繰り返し間隔が入る。
+    Serial.println();
+    Serial.println(F("--- 生タイミング（解析用。この出力をそのまま貼ってください）---"));
+    Serial.println(resultToTimingInfo(&results));
+    Serial.println(resultToSourceCode(&results));
   }
 
   yield();
