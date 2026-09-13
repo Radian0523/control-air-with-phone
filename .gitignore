@@ -27,3 +27,6 @@ ios/**/.build/
 docs/circuit/*.aux
 docs/circuit/*.log
 docs/circuit/build.log
+
+# ホスト側テストのバイナリ
+firmware/ir_serial_test/host_test/ir_frame_test
