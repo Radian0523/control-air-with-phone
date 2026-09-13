@@ -1,0 +1,29 @@
+# Wi-Fi のSSID/パスワード・APIトークンが入る。絶対にコミットしないこと。
+secrets.h
+firmware/**/secrets.h
+
+# macOS
+.DS_Store
+
+# Arduino IDE のビルド成果物
+build/
+*.bin
+*.elf
+*.hex
+
+# Cloudflare / Node
+cloudflare/node_modules/
+cloudflare/.wrangler/
+cloudflare/.dev.vars
+cloudflare/dist/
+
+# Xcode
+ios/**/xcuserdata/
+ios/**/DerivedData/
+ios/**/*.xcuserstate
+ios/**/.build/
+
+# LaTeX 中間ファイル
+docs/circuit/*.aux
+docs/circuit/*.log
+docs/circuit/build.log

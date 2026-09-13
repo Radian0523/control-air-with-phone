@@ -1,0 +1,64 @@
+% IR LED driver — design.md §8.2
+% build: pdflatex ir_driver.tex ; pdftoppm -png -r 200 ir_driver.pdf ir_driver
+\documentclass[tikz,border=10pt,crop]{standalone}
+\usepackage{circuitikz}
+\usepackage{siunitx}
+\ctikzset{bipoles/length=1.1cm, resistors/scale=0.9, diodes/scale=0.8}
+\begin{document}
+\begin{circuitikz}[american, font=\small]
+
+% ---- ESP32 board ----------------------------------------------------------
+\draw[thick, rounded corners=2pt] (0,-0.2) rectangle (3,5.4);
+\node[align=center] at (1.3,3.6) {\textbf{ESP32}\\ideaspark\\WROOM-32\\[3pt]\footnotesize USB 5V in};
+\draw (3,4.5) to[short,-o] (3.6,4.5); \node[left] at (3,4.5) {VIN};
+\draw (3,2.5) to[short,-o] (3.6,2.5); \node[left] at (3,2.5) {GPIO4};
+\draw (3,0.5) to[short,-o] (3.6,0.5); \node[left] at (3,0.5) {GND};
+
+% ---- rails -----------------------------------------------------------------
+\draw (3.6,4.5) -- (3.6,5.2) -- (15.5,5.2);
+\node[above] at (11.5,5.2) {VIN 5V (USB)};
+\draw (3.6,0.5) -- (3.6,-1.0) -- (15.5,-1.0);
+\node[ground] at (15.5,-1.0) {};
+
+% ---- transistor ------------------------------------------------------------
+\node[npn, anchor=C] (Q) at (9.5,1.6) {};
+\node[align=left] at ([xshift=22pt]Q.center) {Q1\\S8050\\(NPN)};
+\draw (Q.E) -- (Q.E |- 0,-1.0);
+
+% ---- LED branches ----------------------------------------------------------
+\foreach \x/\n in {9.5/1, 11.5/2, 13.5/3} {
+  \draw (\x,5.2) to[leD, l=D\n] (\x,3.4)
+              to[R, l=R\n\ \SI{100}{\ohm}] (\x,1.6);
+}
+\draw (9.5,1.6) -- (13.5,1.6);
+\node[circ] at (9.5,1.6) {};
+\node[circ] at (11.5,1.6) {};
+\node[circ] at (9.5,5.2) {};
+\node[circ] at (11.5,5.2) {};
+\node[circ] at (13.5,5.2) {};
+\node[circ] at (Q.E |- 0,-1.0) {};
+\node[circ] at (3.6,5.2) {};
+\node[circ] at (3.6,-1.0) {};
+
+% ---- base network ----------------------------------------------------------
+\draw (3.6,2.5) -| (4.6, 0 |- Q.B)
+      to[R, l=R4\ \SI{220}{\ohm}] (7.2, 0 |- Q.B) node[circ]{}
+      -- (Q.B);
+\draw (7.2, 0 |- Q.B) to[R, l_=R5\ \SI{10}{\kilo\ohm}] (7.2,-1.0) node[circ]{};
+
+% ---- optional bulk capacitor -----------------------------------------------
+\draw[dashed] (15.5,5.2) to[eC, l=C1 \SI{100}{\micro\farad}] (15.5,2.2)
+      to[C, l=C2 \SI{0.1}{\micro\farad}] (15.5,-1.0);
+\node[circ] at (15.5,5.2) {};
+\node[align=left, font=\footnotesize, anchor=west] at (15.8,-0.4) {optional\\(if 3.3V dips)};
+
+% ---- annotations -----------------------------------------------------------
+\node[align=left, font=\footnotesize, anchor=north west] at (0,-1.6) {%
+  D1--D3: 940\,nm IR LED (clear), 100\,mA continuous or better\\
+  R1--R3: $I \approx (5.0-1.2-0.2)/100 \approx \SI{36}{\milli\ampere}$ per branch, $\approx\SI{108}{\milli\ampere}$ total (calc.; measure). Use $\geq \SI{0.25}{\watt}$. Try \SI{68}{\ohm} only after measuring.\\
+  R4: $I_B \approx (3.3-0.7)/220 \approx \SI{11.8}{\milli\ampere}$ (GPIO default drive \SI{20}{\milli\ampere}). Forced $\beta \approx 9$, Q1 saturated.\\
+  R5: keeps base LOW during reset / boot. \quad Power: USB charger \SI{1}{\ampere} or more, not a PC port.\\
+  All grounds common (ESP32 GND, VIN return, Q1 emitter).};
+
+\end{circuitikz}
+\end{document}
