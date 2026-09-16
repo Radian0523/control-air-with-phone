@@ -34,9 +34,10 @@ describe("validateSetting: §5.4", () => {
     expect(validateSetting({ ...good, mode: "Cool" }).ok).toBe(false);
     expect(validateSetting({ ...good, mode: "off" }).ok).toBe(false);
 
-    for (const fan of ["auto", "quiet", "1", "2", "3", "4"]) expect(validateSetting({ ...good, fan }).ok).toBe(true);
+    for (const fan of ["auto", "1", "2", "3"]) expect(validateSetting({ ...good, fan }).ok).toBe(true);
     expect(validateSetting({ ...good, fan: 1 }).ok).toBe(false); // 数値ではなく文字列 "1"
-    expect(validateSetting({ ...good, fan: "5" }).ok).toBe(false);
+    expect(validateSetting({ ...good, fan: "4" }).ok).toBe(false); // リモコンに存在しない（ADR-019）
+    expect(validateSetting({ ...good, fan: "quiet" }).ok).toBe(false);
 
     for (const vane of ["auto", "highest", "high", "middle", "low", "lowest", "swing"]) {
       expect(validateSetting({ ...good, vane }).ok).toBe(true);

@@ -6,7 +6,7 @@ import { TEMP_MAX, TEMP_MIN, type Fan, type Mode, type Setting, type Vane } from
 export type Result<T> = { ok: true; value: T } | { ok: false; error: string };
 
 const MODES: readonly Mode[] = ["auto", "cool", "dry", "heat", "fan"];
-const FANS: readonly Fan[] = ["auto", "quiet", "1", "2", "3", "4"];
+const FANS: readonly Fan[] = ["auto", "1", "2", "3"];
 const VANES: readonly Vane[] = ["auto", "highest", "high", "middle", "low", "lowest", "swing"];
 
 function isRecord(v: unknown): v is Record<string, unknown> {

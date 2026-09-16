@@ -8,7 +8,7 @@
 import { encode, type Fan, type Mode, type Setting, type Vane } from "../src/encoder.ts";
 
 const MODE6: Record<number, Mode> = { 0x20: "auto", 0x18: "cool", 0x10: "dry", 0x08: "heat", 0x38: "fan" };
-const FAN: Record<number, Fan> = { 0: "auto", 5: "quiet", 1: "1", 2: "2", 3: "3", 4: "4" };
+const FAN: Record<number, Fan> = { 0: "auto", 1: "1", 2: "2", 3: "3" };
 const VANE: Record<number, Vane> = { 0: "auto", 1: "highest", 2: "high", 3: "middle", 4: "low", 5: "lowest", 7: "swing" };
 
 function hex(b: number): string {

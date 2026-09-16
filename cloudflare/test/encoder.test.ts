@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { encode, encodeBytes, type Setting } from "../src/encoder";
 
-// design.md §7.2 必須テストベクトル。
-// 1件目だけが実機リモコン採取値。2〜4件目は §7.1 の規則から導出したもので、
-// encoder が規則どおりであることを確認するが、実機互換性の証明にはしない（段階2a で採取照合）。
-const VECTORS: Array<{ name: string; origin: "captured" | "derived"; setting: Setting; expected: string }> = [
+// design.md §7.2 必須テストベクトル（docs/ir-captures.md の採取に基づく）。
+// captured: 実機リモコンの電源ボタン（フルステート）フレームと完全一致
+// normalized: 採取値の byte 15 を電源ボタン形式の 0x10 に正規化したもの（他バイトは採取で確認済み）
+const VECTORS: Array<{ name: string; origin: "captured" | "normalized"; setting: Setting; expected: string }> = [
   {
     name: "ON / dry / 24℃ / auto / middle",
     origin: "captured",
@@ -12,22 +12,28 @@ const VECTORS: Array<{ name: string; origin: "captured" | "derived"; setting: Se
     expected: "23CB260100201008325800000000001000E7",
   },
   {
-    name: "ON / cool / 26℃ / auto / auto",
-    origin: "derived",
-    setting: { power: true, mode: "cool", temp: 26, fan: "auto", vane: "auto" },
-    expected: "23CB26010020180A364000000000001000DD",
+    name: "ON / cool / 26℃ / auto / middle",
+    origin: "captured",
+    setting: { power: true, mode: "cool", temp: 26, fan: "auto", vane: "middle" },
+    expected: "23CB26010020180A365800000000001000F5",
   },
   {
-    name: "OFF / cool / 26℃ / auto / auto",
-    origin: "derived",
-    setting: { power: false, mode: "cool", temp: 26, fan: "auto", vane: "auto" },
-    expected: "23CB26010000180A364000000000001000BD",
+    name: "OFF / cool / 26℃ / auto / middle",
+    origin: "captured",
+    setting: { power: false, mode: "cool", temp: 26, fan: "auto", vane: "middle" },
+    expected: "23CB26010000180A365800000000001000D5",
   },
   {
-    name: "ON / heat / 20℃ / 4 / low",
-    origin: "derived",
-    setting: { power: true, mode: "heat", temp: 20, fan: "4", vane: "low" },
-    expected: "23CB260100200804306400000000001000E5",
+    name: "ON / cool / 26℃ / 1 / auto",
+    origin: "captured",
+    setting: { power: true, mode: "cool", temp: 26, fan: "1", vane: "auto" },
+    expected: "23CB26010020180A364100000000001000DE",
+  },
+  {
+    name: "ON / heat / 26℃ / 1 / lowest",
+    origin: "normalized",
+    setting: { power: true, mode: "heat", temp: 26, fan: "1", vane: "lowest" },
+    expected: "23CB26010020080A306900000000001000F0",
   },
 ];
 
@@ -82,7 +88,7 @@ describe("encode: 形式の不変条件", () => {
   });
 
   it("byte 9: 0x40 | vane<<3 | fan、bit 7 は常に 0", () => {
-    const fans = { auto: 0, quiet: 5, "1": 1, "2": 2, "3": 3, "4": 4 } as const;
+    const fans = { auto: 0, "1": 1, "2": 2, "3": 3 } as const;
     const vanes = { auto: 0, highest: 1, high: 2, middle: 3, low: 4, lowest: 5, swing: 7 } as const;
     for (const [fan, fv] of Object.entries(fans)) {
       for (const [vane, vv] of Object.entries(vanes)) {
@@ -91,6 +97,13 @@ describe("encode: 形式の不変条件", () => {
         expect(b9 & 0x80).toBe(0);
       }
     }
+  });
+
+  it("fan auto + vane auto は byte 9 = 0x40（リセット後の電源フレーム採取値と一致）", () => {
+    expect(encodeBytes({ ...base, fan: "auto", vane: "auto" })[9]).toBe(0x40);
+    // 採取: 23 CB 26 01 00 20 18 05 36 40 00 00 00 00 00 00 00 C8（21℃、byte 15 は 00）
+    const b = encodeBytes({ ...base, temp: 21, fan: "auto", vane: "auto" });
+    expect(Array.from(b.subarray(0, 15))).toEqual([0x23, 0xcb, 0x26, 0x01, 0x00, 0x20, 0x18, 0x05, 0x36, 0x40, 0, 0, 0, 0, 0]);
   });
 
   it("temp 範囲外は RangeError", () => {

@@ -2,7 +2,7 @@
 // 外部状態を参照しない。入力は validate.ts を通った Setting だけを受ける。
 
 export type Mode = "auto" | "cool" | "dry" | "heat" | "fan";
-export type Fan = "auto" | "quiet" | "1" | "2" | "3" | "4";
+export type Fan = "auto" | "1" | "2" | "3";
 export type Vane = "auto" | "highest" | "high" | "middle" | "low" | "lowest" | "swing";
 
 export interface Setting {
@@ -34,15 +34,12 @@ const MODE_BYTE8: Record<Mode, number> = {
   fan: 0x37,
 };
 
-// §7.1 fan値（byte 9 の下位3bit）
-// quiet=5 は規則上の値。実機採取で異なれば、ここと design.md §7.1 を採取値へ合わせる（段階2a）
+// §7.1 fan値（byte 9 の下位3bit）。対象リモコンは自動と3段のみ（ADR-019、docs/ir-captures.md）
 const FAN_VALUE: Record<Fan, number> = {
   auto: 0,
-  quiet: 5,
   "1": 1,
   "2": 2,
   "3": 3,
-  "4": 4,
 };
 
 // §7.1 vane値（byte 9 の bit 3〜5）
@@ -71,9 +68,11 @@ export function encodeBytes(s: Setting): Uint8Array {
   b[6] = MODE_BYTE6[s.mode];
   b[7] = s.temp - TEMP_MIN;
   b[8] = MODE_BYTE8[s.mode];
-  // bit 6 は常に1（0x40）。bit 7（IRremoteESP8266 の FanAuto）は実機リモコンに合わせて常に0
+  // bit 6 は常に1（0x40）、bit 7 は常に0。実機リモコンの電源ボタン（フルステート）フレームに一致する。
+  // ボタン直後だけ現れる 0x98 / 0x81 の形は採用しない（docs/ir-captures.md）
   b[9] = 0x40 | (VANE_VALUE[s.vane] << 3) | FAN_VALUE[s.fan];
   // byte 10〜14 は 0x00（初期化済み）
+  // byte 15 はリモコンでは電源ボタン時 0x10、他ボタン時 0x00。エアコンは両方を受理するので 0x10 固定
   b[15] = 0x10;
   b[16] = 0x00;
   let sum = 0;
