@@ -207,7 +207,7 @@ CA bundleは、単一CAやcommon CAだけへ絞らず、Mozilla NSS root store�
 - `boot`
 - `wifi_connected` / `wifi_failed status=<WiFi.status()の数値>`
 - `time_synced` / `time_failed`
-- `ws_connected` / `ws_disconnected`
+- `ws_connected` / `ws_failed` / `ws_disconnected`
 - `ir_sent` / `invalid_frame`
 
 SSID、パスワード、Bearer token、36文字payload、heartbeat成功、待機中の繰り返しログは出力しない。

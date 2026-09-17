@@ -14,9 +14,12 @@
 //    esp32:esp32 3.3.11 / IRremoteESP8266 2.9.0 / arduinoWebSockets 2.7.2
 //    Partition: Huge APP (3MB No OTA/1MB SPIFFS) / Upload Speed 115200
 //
-//  ビルドフラグ:
-//    AIRCON_DEBUG_HEAP を定義すると ws_connected 行に free heap を付ける（試験専用。本番では定義しない）
+//  試験用ビルド（段階5）:
+//    下の AIRCON_DEBUG_HEAP のコメントを外すと、ws_connected / ws_failed 行に free heap と
+//    TLS 接続にかかった時間を付け、ONLINE 中は5分ごとに heap を出す。本番ではコメントのままにする。
 // ---------------------------------------------------------------------------
+
+// #define AIRCON_DEBUG_HEAP
 
 #include <Arduino.h>
 #include <WiFi.h>
@@ -45,6 +48,10 @@ constexpr time_t kMinValidTime = 1704067200;  // 2024-01-01T00:00:00Z
 constexpr uint32_t kHeartbeatIntervalMs = 30000;
 constexpr uint32_t kHeartbeatPongTimeoutMs = 10000;
 constexpr uint8_t kHeartbeatFailures = 2;
+#ifdef AIRCON_DEBUG_HEAP
+constexpr uint32_t kHeapReportIntervalMs = 300000;  // 5分
+uint32_t lastHeapReportAt = 0;
+#endif
 
 enum class State { Connecting, Online, Teardown, OffWait };
 
@@ -60,6 +67,19 @@ IRsend irsend(kIrLedPin);
 
 // ---- ログ（§4.8: 状態変化だけ。秘密情報と payload は出さない）------------------
 void logEvent(const char *event) { Serial.println(event); }
+
+// 接続結果の行。試験用ビルドでは heap と TLS 所要時間を付ける
+void logWsResult(const char *event, uint32_t tlsMs) {
+#ifdef AIRCON_DEBUG_HEAP
+  Serial.printf("%s heap=%u min_heap=%u tls_ms=%u\n", event,
+                static_cast<unsigned>(ESP.getFreeHeap()),
+                static_cast<unsigned>(ESP.getMinFreeHeap()),
+                static_cast<unsigned>(tlsMs));
+#else
+  (void)tlsMs;
+  logEvent(event);
+#endif
+}
 
 // ---- Task WDT（§4.4: add / idle hook / delay(1) の3点セット）-------------------
 bool feedTaskWdtFromIdle1() {
@@ -154,20 +174,20 @@ bool connectWebSocket() {
   webSocket.setReconnectInterval(0);
   // protocol を空にすると Sec-WebSocket-Protocol ヘッダを送らない
   webSocket.beginSslWithBundle(WS_HOST, WS_PORT, WS_PATH, ca_bundle, ca_bundle_len, "");
-  webSocket.loop();
+  const uint32_t start = millis();
+  webSocket.loop();  // ここで TCP と TLS handshake が同期的に走る
+  const uint32_t tlsMs = millis() - start;
   webSocket.setReconnectInterval(kWsInnerRetryMs);
 
-  const uint32_t start = millis();
   while (!wsConnectedEvent) {
-    if (wsClosedEvent || millis() - start >= kWsTimeoutMs) return false;
+    if (wsClosedEvent || millis() - start >= kWsTimeoutMs) {
+      logWsResult("ws_failed", tlsMs);
+      return false;
+    }
     webSocket.loop();
     delay(1);
   }
-#ifdef AIRCON_DEBUG_HEAP
-  Serial.printf("ws_connected heap=%u\n", static_cast<unsigned>(ESP.getFreeHeap()));
-#else
-  logEvent("ws_connected");
-#endif
+  logWsResult("ws_connected", tlsMs);
   return true;
 }
 
@@ -223,6 +243,13 @@ void loop() {
         logEvent("ws_disconnected");
         state = State::Teardown;
       }
+#ifdef AIRCON_DEBUG_HEAP
+      if (millis() - lastHeapReportAt >= kHeapReportIntervalMs) {
+        lastHeapReportAt = millis();
+        Serial.printf("heap=%u min_heap=%u\n", static_cast<unsigned>(ESP.getFreeHeap()),
+                      static_cast<unsigned>(ESP.getMinFreeHeap()));
+      }
+#endif
       break;
 
     case State::Teardown:
