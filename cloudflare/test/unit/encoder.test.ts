@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { encode, encodeBytes, type Setting } from "../src/encoder";
+import { encode, encodeBytes, type Setting } from "../../src/encoder";
 
 // design.md §7.2 必須テストベクトル（docs/ir-captures.md の採取に基づく）。
 // captured: 実機リモコンの電源ボタン（フルステート）フレームと完全一致

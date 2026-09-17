@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { validateExecuteAt, validateSetting } from "../src/validate";
+import { validateExecuteAt, validateSetting } from "../../src/validate";
 
 const good = { power: true, mode: "cool", temp: 26, fan: "auto", vane: "auto" };
 

@@ -1,0 +1,17 @@
+# エアコン遠隔操作 — Worker + Durable Object "home"（design.md §5、ADR-007）
+name = "aircon"
+main = "src/index.ts"
+compatibility_date = "2026-08-01"
+
+# secret は wrangler secret put DEVICE_TOKEN / APP_TOKEN で登録する。ここには書かない
+
+[[durable_objects.bindings]]
+name = "HOME"
+class_name = "Home"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Home"]
+
+[observability]
+enabled = true
