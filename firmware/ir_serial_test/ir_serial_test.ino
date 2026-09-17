@@ -32,6 +32,7 @@
 #include <IRremoteESP8266.h>
 #include <IRsend.h>
 #include <esp_task_wdt.h>
+#include <esp_freertos_hooks.h>
 #include <driver/gpio.h>
 
 #include "ir_frame.h"
@@ -48,6 +49,15 @@ IRsend irsend(kIrLedPin);
 char line[kLineCapacity];
 size_t lineLen = 0;
 bool lineOverflow = false;
+
+// core 1 の IDLE タスクから Task WDT へ餌を与える idle hook。
+// ESP-IDF は CONFIG_ESP_TASK_WDT_CHECK_IDLE_TASK_CPU1 が有効なときだけこの hook を自動登録するが、
+// arduino-esp32 3.x の既定設定では無効で、enableCore1WDT() は IDLE1 を監視対象に「追加するだけ」。
+// hook がないと IDLE1 は永久にリセットできず、5秒で必ずパニックする（2026-09-17 実機で確認）。
+bool feedTaskWdtFromIdle1() {
+  esp_task_wdt_reset();
+  return true;
+}
 
 void handleLine(const char *text, size_t len) {
   // 搬送上の CR を1個だけ落とす（上記コメント参照）
@@ -75,8 +85,12 @@ void setup() {
   digitalWrite(kIrLedPin, LOW);
 
   // §4.4: Task Watchdog を core 1 で有効にする（本番と同じ起動手順を踏む）。
-  // loop() の末尾の delay(1) と対になる。片方だけにしないこと
+  // 次の3つは必ずセットで使う。どれか欠けると5秒で再起動する。
+  //   1. enableCore1WDT()                       IDLE1 を監視対象に追加
+  //   2. esp_register_freertos_idle_hook_for_cpu IDLE1 が走るたびに WDT をリセット
+  //   3. loop() 末尾の delay(1)                  IDLE1 に CPU を譲る
   enableCore1WDT();
+  esp_register_freertos_idle_hook_for_cpu(feedTaskWdtFromIdle1, 1);
 
   Serial.begin(115200);
   irsend.begin();
@@ -106,9 +120,7 @@ void loop() {
     }
   }
 
-  // §4.4: core 1 の IDLE タスクへ毎周期 CPU を譲る。
-  // Arduino の loopTask は loop() を休みなく呼び続けるため、ここで譲らないと
-  // enableCore1WDT() が監視する IDLE1 が走れず、5秒で Task WDT パニック → 再起動になる
-  // （CONFIG_ESP_TASK_WDT_PANIC=y, TIMEOUT 5s）。
+  // §4.4: core 1 の IDLE タスクへ毎周期 CPU を譲る（setup() の WDT 設定と対）。
+  // Arduino の loopTask は loop() を休みなく呼び続けるため、ここで譲らないと IDLE1 が走れない。
   delay(1);
 }

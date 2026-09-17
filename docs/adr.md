@@ -126,7 +126,7 @@ SSIDとパスワードをファームウェア定数にする。再設定機構�
 - 回路部品と試験項目は残る
 - 到達距離より許容電流を優先する
 - 100Ωで不足する場合だけ、測定しながら68Ωを試す
-- `enableCore1WDT()`は`loop()`末尾の`delay(1)`と対で使う。2026-09-17の段階2c試験で、譲らない`loop()`がIDLE1を飢餓させ5秒ごとに再起動する事象を確認した
+- Task WDTは`enableCore1WDT()`、core 1のidle hook登録、`loop()`末尾の`delay(1)`の3点セットで使う。2026-09-17の段階2c試験で、hookなし・譲らない`loop()`のどちらでも5秒ごとに再起動する事象を確認した。core 3.xの`enableCore1WDT()`はIDLE1を監視対象に追加するだけでhookを登録しない
 - Base抵抗は220Ωを維持する。GPIOの約11.8mAは`pinMode`で使われる既定の駆動強度2における約20mAを下回り、約108mAのcollector電流に対してforced betaを低く取れる。最終判断は実測値を使う
 
 ## ADR-007: Cloudflare WorkersとDurable Objectsを使う

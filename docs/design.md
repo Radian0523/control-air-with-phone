@@ -73,7 +73,7 @@ ESP32
 ```text
 BOOT
   → gpio_set_level(GPIO4, 0) で出力レジスタをLOWにしてからOUTPUT化
-  → enableCore1WDT()
+  → enableCore1WDT() と core 1 の idle hook 登録
   → WiFi.persistent(false)
   → CONNECTING（Wi-Fi → 必要時だけNTP → WebSocket）
   → ONLINE（36文字を受信したら同期的に赤外線送信）
@@ -132,10 +132,12 @@ WebSocketプロトコルのpongはライブラリへ任せる。これはアプ�
 - 複数フレームは1フレームの処理完了後に次を処理する
 - 割り込みを禁止しない
 - 歪みや未達を検知せず、命令を自動再送しない
-- 起動時に`enableCore1WDT()`を呼ぶ
-- `loop()`は毎周期の末尾で`delay(1)`を呼び、core 1のIDLEタスクへCPUを譲る
+- 起動時にTask WDTを次の3点セットで有効にする。どれか1つ欠けると5秒で再起動する
+  1. `enableCore1WDT()` でIDLE1を監視対象に追加する
+  2. `esp_register_freertos_idle_hook_for_cpu(hook, 1)` で、IDLE1が走るたびに`esp_task_wdt_reset()`を呼ぶhookを登録する
+  3. `loop()`の末尾で`delay(1)`を呼び、IDLE1へCPUを譲る
 
-Arduinoの`loopTask`は`loop()`を休みなく呼び続けるため、`loop()`が譲らないとIDLE1が走れず、`enableCore1WDT()`で監視対象にしたIDLE1が5秒でTask WDTパニックを起こして再起動する（core 3.3.11は`CONFIG_ESP_TASK_WDT_PANIC=y`、timeout 5秒）。`delay(1)`と`enableCore1WDT()`は対で扱い、片方だけにしない。赤外線送信の約0.5秒とTLS handshakeのソケット待ちはこの5秒に収まる。
+core 3.3.11は`CONFIG_ESP_TASK_WDT_PANIC=y`、timeout 5秒、`CONFIG_ESP_TASK_WDT_CHECK_IDLE_TASK_CPU1`無効である。このため`enableCore1WDT()`はIDLE1を監視対象に追加するだけで、ESP-IDFが本来IDLEタスクへ仕込むidle hookを登録しない。hookがないとIDLE1は永久にリセットできない。またArduinoの`loopTask`は`loop()`を休みなく呼び続けるため、`loop()`が譲らないとIDLE1自体が走れない。赤外線送信の約0.5秒とTLS handshakeのソケット待ちはこの5秒に収まる。
 
 core 3.xの`digitalWrite()`は`pinMode()`より前に呼ぶと周辺管理に未登録のため何もしない。起動時の出力ラッチ初期化にはIDFの`gpio_set_level()`を使う。
 
