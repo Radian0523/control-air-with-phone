@@ -1,9 +1,10 @@
 // Worker 入口（design.md §5.5）。認証境界とルーティングだけを持つ。
-// 段階3: GET /device/ws のみ。/command と /schedule は段階4・7で追加する。
+// 段階4: GET /device/ws と POST /command。/schedule は段階7で追加する。
 
 import { bearerMatches } from "./auth";
 import { Home, type Env } from "./home";
 import { log } from "./log";
+import { validateSetting } from "./validate";
 
 export { Home };
 
@@ -28,6 +29,23 @@ export default {
         }
         const stub = env.HOME.get(env.HOME.idFromName("home"));
         return stub.fetch(request);
+      }
+      if (url.pathname === "/command") {
+        if (request.method !== "POST") return json(405, { error: "method_not_allowed" });
+        if (!(await bearerMatches(request.headers.get("Authorization"), env.APP_TOKEN))) {
+          return json(401, { error: "unauthorized" });
+        }
+        let body: unknown;
+        try {
+          body = await request.json();
+        } catch {
+          return json(400, { error: "bad_request" });
+        }
+        const v = validateSetting(body);
+        if (!v.ok) return json(400, { error: "bad_request" });
+        const stub = env.HOME.get(env.HOME.idFromName("home"));
+        const result = await stub.command(v.value);
+        return result.ok ? json(202, { ok: true }) : json(503, { error: result.error });
       }
       return json(404, { error: "not_found" });
     } catch (e) {

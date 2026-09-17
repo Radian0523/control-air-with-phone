@@ -3,6 +3,7 @@
 // 段階3: device WebSocket の受け入れと置換だけ。/command と予約は段階4・7で追加する。
 
 import { DurableObject } from "cloudflare:workers";
+import { encode, type Setting } from "./encoder";
 import { log } from "./log";
 
 export interface Env {
@@ -55,9 +56,36 @@ export class Home extends DurableObject<Env> {
     log("device_disconnected", { error: true });
   }
 
-  /** 接続中の device socket を返す。なければ null。段階4以降で使う */
-  deviceSocket(): WebSocket | null {
+  /** 接続中の device socket を返す。なければ null */
+  private deviceSocket(): WebSocket | null {
     const sockets = this.ctx.getWebSockets(DEVICE_TAG);
     return sockets[0] ?? null;
+  }
+
+  /**
+   * 36文字を device socket へ1回だけ送る（§5.5）。
+   * 接続なし、閉じている、send() が同期的に例外 → false（503 相当）。送信できたら true（202 相当）。
+   * 設計どおり、ESP32 の処理完了やエアコンの受理は確認しない。
+   */
+  private sendToDevice(payload: string): boolean {
+    const ws = this.deviceSocket();
+    if (!ws) return false;
+    try {
+      ws.send(payload);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /** POST /command（§5.5）。検証済みの設定を受け取り、encode して送る。RPC で Worker から呼ばれる */
+  async command(setting: Setting): Promise<{ ok: true } | { ok: false; error: "device_offline" }> {
+    const payload = encode(setting);
+    if (this.sendToDevice(payload)) {
+      log("command_sent");
+      return { ok: true };
+    }
+    log("command_offline");
+    return { ok: false, error: "device_offline" };
   }
 }
