@@ -1,6 +1,6 @@
 // Durable Object "home"（design.md §5.1、§5.2、ADR-018）。
 // ESP32 の device WebSocket を最大1本、Hibernation API で保持する。
-// 段階3: device WebSocket の受け入れと置換だけ。/command と予約は段階4・7で追加する。
+// device WebSocket の受け入れと置換、即時操作、一発予約（1件）と Alarm を持つ。
 
 import { DurableObject } from "cloudflare:workers";
 import { encode, type Setting } from "./encoder";
@@ -13,6 +13,20 @@ export interface Env {
 }
 
 const DEVICE_TAG = "device";
+const SCHEDULE_KEY = "schedule";
+
+/** 永続化する業務データ。予約1件だけ（§5.2） */
+interface ScheduleRecord {
+  executeAt: string; // UTC 正規形
+  setting: Setting;
+  payload: string; // 受付時に生成した36文字。後日のコード変更で予約内容が変わらないため
+}
+
+/** API が返す形。payload は返さない（§5.5） */
+export interface ScheduleView {
+  executeAt: string;
+  setting: Setting;
+}
 
 export class Home extends DurableObject<Env> {
   /**
@@ -75,6 +89,52 @@ export class Home extends DurableObject<Env> {
       return true;
     } catch {
       return false;
+    }
+  }
+
+  // ---- 一発予約（§5.2、ADR-011）------------------------------------------------
+
+  /** GET /schedule。予約1件または null */
+  async getSchedule(): Promise<ScheduleView | null> {
+    const rec = await this.ctx.storage.get<ScheduleRecord>(SCHEDULE_KEY);
+    return rec ? { executeAt: rec.executeAt, setting: rec.setting } : null;
+  }
+
+  /** PUT /schedule。新しい予約は古い予約を置き換える。Alarm も置き換わる */
+  async putSchedule(setting: Setting, executeAt: string, epochMs: number): Promise<ScheduleView> {
+    const rec: ScheduleRecord = { executeAt, setting, payload: encode(setting) };
+    await this.ctx.storage.put(SCHEDULE_KEY, rec);
+    await this.ctx.storage.setAlarm(epochMs);
+    log("schedule_set", { executeAt });
+    return { executeAt, setting };
+  }
+
+  /** DELETE /schedule。レコードと Alarm を削除する */
+  async deleteSchedule(): Promise<void> {
+    await this.ctx.storage.delete(SCHEDULE_KEY);
+    await this.ctx.storage.deleteAlarm();
+    log("schedule_deleted");
+  }
+
+  /**
+   * Alarm handler。順序は §5.2 に固定する。
+   *   読む → なければ終了 → 削除して完了を待つ → 接続中なら1回 send → 失敗は記録して正常終了
+   * 読み込み・削除で失敗した場合はまだ送っていないので、例外をそのまま投げて Alarm の再試行に任せる。
+   * 削除が完了した後は何があっても例外を投げない（再試行で二重送信しないため、ADR-005）。
+   */
+  override async alarm(): Promise<void> {
+    const rec = await this.ctx.storage.get<ScheduleRecord>(SCHEDULE_KEY);
+    if (!rec) return;
+    await this.ctx.storage.delete(SCHEDULE_KEY);
+
+    try {
+      if (this.sendToDevice(rec.payload)) {
+        log("schedule_fired_sent", { executeAt: rec.executeAt });
+      } else {
+        log("schedule_fired_offline", { executeAt: rec.executeAt });
+      }
+    } catch (e) {
+      log("server_error", { where: "alarm", message: e instanceof Error ? e.message : String(e) });
     }
   }
 

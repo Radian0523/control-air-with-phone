@@ -65,6 +65,7 @@ struct ContentView: View {
             }
             .navigationTitle("エアコン")
             .toolbar {
+                NavigationLink { ScheduleView() } label: { Image(systemName: "clock") }
                 Button { showSettings = true } label: { Image(systemName: "gear") }
             }
             .sheet(isPresented: $showSettings) { SettingsView() }
