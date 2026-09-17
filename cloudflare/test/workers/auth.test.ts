@@ -1,3 +1,4 @@
+// crypto.subtle.timingSafeEqual は Cloudflare 固有のため、workers プロジェクトで実行する
 import { describe, expect, it } from "vitest";
 import { bearerMatches, extractBearer } from "../../src/auth";
 

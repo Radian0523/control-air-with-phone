@@ -12,3 +12,16 @@ test/            vitest
 ```
 
 secret は `wrangler secret put DEVICE_TOKEN` / `wrangler secret put APP_TOKEN` で登録する。リポジトリには置かない。
+
+## デプロイ先
+
+- URL: `https://aircon.aircon-worker.workers.dev`（2026-09-17 初回デプロイ）
+- デプロイ: `npm run deploy`
+- ログ: `npx wrangler tail --format pretty`
+
+secret の登録（値は `openssl rand -hex 32` などで生成し、DEVICE_TOKEN は ESP32 の secrets.h と同じ値にする）:
+
+```bash
+npx wrangler secret put DEVICE_TOKEN
+npx wrangler secret put APP_TOKEN
+```

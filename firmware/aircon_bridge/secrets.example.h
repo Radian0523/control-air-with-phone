@@ -7,7 +7,7 @@
 #define WIFI_PASSWORD  "your-password"
 
 // Cloudflare Worker（design.md §4.5 / §4.6）
-#define WS_HOST        "aircon.example.workers.dev"
+#define WS_HOST        "aircon.aircon-worker.workers.dev"
 #define WS_PORT        443
 #define WS_PATH        "/device/ws"
 
