@@ -1,0 +1,51 @@
+# xcodegen generate でこの定義から AirconRemote.xcodeproj を生成する（生成物はコミットしない）
+name: AirconRemote
+options:
+  bundleIdPrefix: local.aircon
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+targets:
+  AirconRemote:
+    type: application
+    platform: iOS
+    sources:
+      - Sources
+    info:
+      path: Sources/Info.plist
+      properties:
+        CFBundleDisplayName: エアコン
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        ITSAppUsesNonExemptEncryption: false
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: local.aircon.AirconRemote
+        SWIFT_VERSION: "5.0"
+        CODE_SIGN_STYLE: Automatic
+        TARGETED_DEVICE_FAMILY: "1"
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+  AirconRemoteTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - Tests
+    dependencies:
+      - target: AirconRemote
+    settings:
+      base:
+        SWIFT_VERSION: "5.0"
+        GENERATE_INFOPLIST_FILE: YES
+schemes:
+  AirconRemote:
+    build:
+      targets:
+        AirconRemote: all
+        AirconRemoteTests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - AirconRemoteTests
