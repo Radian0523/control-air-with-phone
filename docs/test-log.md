@@ -41,3 +41,46 @@
 ### 判定
 
 段階2のゲート（採取と規則の一致、電気試験合格、設置位置からの安定動作）をすべて満たす。段階3へ進む。
+
+## 段階3・4. 機器接続と即時操作（2026-09-17）
+
+環境: Worker `aircon`（https://aircon.aircon-worker.workers.dev）、arduinoWebSockets 2.7.2、CA bundle 2026-08-13 版（55,587B）。ESP32 は 2.4GHz SSID に接続。
+
+### 接続（段階3）
+
+| 項目 | 結果 |
+|---|---|
+| `boot` → `wifi_connected` → `time_synced` → `ws_connected` | 合格 |
+| EN リセット後、時刻が残っているため `time_synced` を省略して `ws_connected` | 合格（§4.5 の NTP 省略） |
+| Cloudflare に `device_connected` が記録される | 合格（23:32:50） |
+| 新接続で古い接続が閉じられる | 合格。古い接続は相手不在のため code 1006 で `device_disconnected` |
+| Wi-Fi 失敗時に再起動せず約45秒周期（15s 試行 + 30s 待機）で再試行 | 合格（5GHz SSID 指定時に `wifi_failed status=1` を繰り返した） |
+| TLS チェーン | Let's Encrypt → ISRG Root X2。root は bundle に含まれる |
+| 誤 DEVICE_TOKEN で 401 と 30秒周期の再試行 | 未実施（段階5で実施） |
+| 誤ホスト・未信頼証明書で TLS 失敗 | 未実施（段階5で実施） |
+| hibernate 後の `getWebSockets("device")` 再取得 | 段階4の curl が接続から数分後に成功しており、実質的に確認。明示的な長時間放置試験は段階5で実施 |
+| TLS 接続の内部ブロック時間、RAM ピーク | 未実施（段階5、AIRCON_DEBUG_HEAP ビルドで実施） |
+
+観察: 23:33:09 に `device_disconnected`（1006）が1件追加で記録されたが、ESP32 側に `ws_disconnected` は出ておらず、その後5分間に再接続も無い。EN リセット前の古い接続の後始末と判断する。
+
+### 即時操作（段階4）
+
+| 項目 | 結果 |
+|---|---|
+| 統合テスト（401 / 400 / 405 / 202 で36文字到達 / 503） | 合格（workers pool、40テスト） |
+| 本番: トークン無しの `/device/ws` → 401、未知パス → 404 | 合格 |
+| 本番: `POST /command` 冷房26℃ON → 202、`ir_sent`、エアコン動作 | 合格 |
+| 本番: `POST /command` 電源OFF → 202、`ir_sent`、エアコン停止 | 合格 |
+| 本番: ESP32 電源OFF後の 503 | 未実施（段階5で実施） |
+
+### 途中で見つかった問題と対処
+
+| 事象 | 原因 | 対処 | コミット |
+|---|---|---|---|
+| `wifi_failed` を繰り返す | 5GHz SSID を指定していた。ESP32 は 2.4GHz のみ | 2.4GHz SSID へ変更。`wifi_failed` に status コードを付与し、`tools/wifi_scan` を追加 | 6b6260d |
+| vitest 5 と pool-workers の peer 衝突 | pool-workers 0.22 は vitest 4 系のみ | vitest を 4 系に固定 | 4f99bb1 |
+| `crypto.subtle.timingSafeEqual` が Node に無い | Cloudflare 固有 API | auth のテストを workers プロジェクトへ移動 | 63a5298 |
+
+### 判定
+
+段階4のゲート「全 HTTP 結果を再現し、202 で実機が動く」を満たす。段階3の未実施項目は障害系の性質が強いため段階5へ移し、まとめて実施する。
