@@ -205,7 +205,7 @@ CA bundleは、単一CAやcommon CAだけへ絞らず、Mozilla NSS root store�
 状態変化だけを出力する。
 
 - `boot`
-- `wifi_connected` / `wifi_failed`
+- `wifi_connected` / `wifi_failed status=<WiFi.status()の数値>`
 - `time_synced` / `time_failed`
 - `ws_connected` / `ws_disconnected`
 - `ir_sent` / `invalid_frame`

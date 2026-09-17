@@ -109,7 +109,11 @@ bool connectWifi() {
   const uint32_t start = millis();
   while (WiFi.status() != WL_CONNECTED) {
     if (millis() - start >= kWifiTimeoutMs) {
-      logEvent("wifi_failed");
+      // status は原因の切り分け用（秘密情報ではない）。
+      //   1 NO_SSID_AVAIL: SSID が見えない（綴り違い、5GHz 専用、ステルス）
+      //   4 CONNECT_FAILED: 認証失敗（パスワード違い、WPA3 専用）
+      //   6 DISCONNECTED / 0 IDLE: 接続処理が進んでいない（電波が弱い、DHCP 失敗）
+      Serial.printf("wifi_failed status=%d\n", static_cast<int>(WiFi.status()));
       return false;
     }
     delay(50);
