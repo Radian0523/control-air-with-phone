@@ -32,6 +32,7 @@
 #include <IRremoteESP8266.h>
 #include <IRsend.h>
 #include <esp_task_wdt.h>
+#include <driver/gpio.h>
 
 #include "ir_frame.h"
 
@@ -66,11 +67,15 @@ void handleLine(const char *text, size_t len) {
 }  // namespace
 
 void setup() {
-  // §4.1 BOOT: 出力ラッチを LOW にしてから OUTPUT 化し、起動時の誤点灯を防ぐ
-  digitalWrite(kIrLedPin, LOW);
+  // §4.1 BOOT: 出力ラッチを LOW にしてから OUTPUT 化し、起動時の誤点灯を防ぐ。
+  // core 3.x の digitalWrite() は pinMode() 前だと何もしない（周辺管理の登録前）ので、
+  // IDF の gpio_set_level() で出力レジスタを直接 0 にしてから OUTPUT にする。
+  gpio_set_level(static_cast<gpio_num_t>(kIrLedPin), 0);
   pinMode(kIrLedPin, OUTPUT);
+  digitalWrite(kIrLedPin, LOW);
 
-  // §4.4: Task Watchdog を core 1 で有効にする（本番と同じ起動手順を踏む）
+  // §4.4: Task Watchdog を core 1 で有効にする（本番と同じ起動手順を踏む）。
+  // loop() の末尾の delay(1) と対になる。片方だけにしないこと
   enableCore1WDT();
 
   Serial.begin(115200);
@@ -100,4 +105,10 @@ void loop() {
       lineOverflow = true;
     }
   }
+
+  // §4.4: core 1 の IDLE タスクへ毎周期 CPU を譲る。
+  // Arduino の loopTask は loop() を休みなく呼び続けるため、ここで譲らないと
+  // enableCore1WDT() が監視する IDLE1 が走れず、5秒で Task WDT パニック → 再起動になる
+  // （CONFIG_ESP_TASK_WDT_PANIC=y, TIMEOUT 5s）。
+  delay(1);
 }

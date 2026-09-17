@@ -72,7 +72,7 @@ ESP32
 
 ```text
 BOOT
-  → GPIO4の出力ラッチをLOWにしてからOUTPUT化
+  → gpio_set_level(GPIO4, 0) で出力レジスタをLOWにしてからOUTPUT化
   → enableCore1WDT()
   → WiFi.persistent(false)
   → CONNECTING（Wi-Fi → 必要時だけNTP → WebSocket）
@@ -133,6 +133,11 @@ WebSocketプロトコルのpongはライブラリへ任せる。これはアプ�
 - 割り込みを禁止しない
 - 歪みや未達を検知せず、命令を自動再送しない
 - 起動時に`enableCore1WDT()`を呼ぶ
+- `loop()`は毎周期の末尾で`delay(1)`を呼び、core 1のIDLEタスクへCPUを譲る
+
+Arduinoの`loopTask`は`loop()`を休みなく呼び続けるため、`loop()`が譲らないとIDLE1が走れず、`enableCore1WDT()`で監視対象にしたIDLE1が5秒でTask WDTパニックを起こして再起動する（core 3.3.11は`CONFIG_ESP_TASK_WDT_PANIC=y`、timeout 5秒）。`delay(1)`と`enableCore1WDT()`は対で扱い、片方だけにしない。赤外線送信の約0.5秒とTLS handshakeのソケット待ちはこの5秒に収まる。
+
+core 3.xの`digitalWrite()`は`pinMode()`より前に呼ぶと周辺管理に未登録のため何もしない。起動時の出力ラッチ初期化にはIDFの`gpio_set_level()`を使う。
 
 赤外線送信中にWebSocketが切れた場合は送信を完了し、その後TEARDOWNへ進む。
 
@@ -510,6 +515,7 @@ Emitter ─────────── GND
 - 有効な時刻があればNTPを省略する
 - TLSの内部ブロック時間を測る
 - TLS接続中にTask WDTが誤発火しないことを確認する
+- ONLINEで待機中（`loop()`が即時に返る状態）に5秒以上経ってもTask WDTが発火しない
 - 正しいホストはTLS成功、誤ホスト・未信頼証明書は失敗する
 - heartbeatでAP切断、ルーター再起動、ISP断を検知する
 - 接続失敗時は1サイクル1回だけ接続を試し、必ず後始末、Wi-Fi OFF、30秒待機、再接続となる
