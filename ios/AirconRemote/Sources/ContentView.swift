@@ -1,5 +1,6 @@
 import SwiftUI
 
+// 操作画面。設定 → 今すぐ送る / 予約 を1画面に置く。別画面は設定（SettingsView）だけ。
 struct ContentView: View {
     @EnvironmentObject private var config: AppConfig
     @EnvironmentObject private var store: SettingStore
@@ -11,6 +12,16 @@ struct ContentView: View {
     var body: some View {
         NavigationStack {
             Form {
+                if !config.isConfigured {
+                    Section {
+                        Button {
+                            showSettings = true
+                        } label: {
+                            Label("Worker URL と APP_TOKEN を設定する", systemImage: "gear")
+                        }
+                    }
+                }
+
                 Section {
                     Toggle("電源", isOn: $store.setting.power)
                 }
@@ -33,6 +44,7 @@ struct ContentView: View {
                         ForEach(Vane.allCases) { Text($0.label).tag($0) }
                     }
                 }
+                .disabled(!store.setting.power)
 
                 Section {
                     Button {
@@ -40,32 +52,24 @@ struct ContentView: View {
                     } label: {
                         HStack {
                             Spacer()
-                            if sending { ProgressView() } else { Text("エアコンへ送る").bold() }
+                            if sending { ProgressView() } else { Text("今すぐ送る").bold() }
                             Spacer()
                         }
                     }
                     .disabled(sending)
-                } footer: {
-                    Text("現在の全設定をまとめて送ります。「受け付けました」はCloudflareが送信要求を受けたことを示し、エアコンが動いたことの確認ではありません。")
-                }
 
-                if let outcome {
-                    Section("結果") {
+                    if let outcome {
                         Label(outcome.message, systemImage: outcome.isSuccess ? "checkmark.circle" : "exclamationmark.triangle")
                             .foregroundStyle(outcome.isSuccess ? .green : .orange)
                     }
+                } footer: {
+                    Text("上の設定をまとめて送ります。「受け付けました」は Cloudflare が送信要求を受けたことを示し、エアコンが動いたことの確認ではありません。")
                 }
 
-                if !config.isConfigured {
-                    Section {
-                        Label("Worker URL と APP_TOKEN を設定してください", systemImage: "gear")
-                            .foregroundStyle(.secondary)
-                    }
-                }
+                ScheduleSection()
             }
             .navigationTitle("エアコン")
             .toolbar {
-                NavigationLink { ScheduleView() } label: { Image(systemName: "clock") }
                 Button { showSettings = true } label: { Image(systemName: "gear") }
             }
             .sheet(isPresented: $showSettings) { SettingsView() }

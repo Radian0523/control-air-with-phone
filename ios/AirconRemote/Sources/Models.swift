@@ -60,3 +60,10 @@ struct Setting: Codable, Equatable {
 
     static let `default` = Setting(power: false, mode: .cool, temp: 26, fan: .auto, vane: .auto)
 }
+
+extension Setting {
+    /// 画面表示用の1行要約。電源OFFなら運転内容は出さない
+    static func summary(_ s: Setting) -> String {
+        s.power ? "\(s.mode.label) \(s.temp)℃ 風量\(s.fan.label) 風向\(s.vane.label)" : "電源OFF"
+    }
+}
