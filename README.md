@@ -3,8 +3,6 @@
 iPhone から三菱電機エアコンを操作する個人プロジェクト。
 iPhone → Cloudflare Worker / Durable Object → WebSocket (TLS) → ESP32 → 赤外線 → エアコン。
 
-Control a Mitsubishi air conditioner from an iPhone via Cloudflare and an ESP32 IR transmitter. Designed first (spec + 20 ADRs), built in 8 gated stages, installed and in daily use since 2026-09-18.
-
 ![IR driver circuit](docs/circuit/ir_driver.png)
 
 ## 何ができるか
@@ -72,13 +70,6 @@ Control a Mitsubishi air conditioner from an iPhone via Cloudflare and an ESP32 
 | [docs/stage5-procedure.md](docs/stage5-procedure.md) | 障害系試験の手順（診断用） |
 | [docs/circuit/](docs/circuit/) | 赤外線送信回路図（`.tex` / `.pdf` / `.png`） |
 
-## 開発で得た知見（抜粋）
-
-- **ESP32 が 5 秒ごとに再起動する**: arduino-esp32 3.x の `enableCore1WDT()` は IDLE1 を監視対象に加えるだけで idle hook を登録しない。`esp_register_freertos_idle_hook_for_cpu` と `loop()` 末尾の `delay(1)` を揃えて解決（ADR-006、[振り返り 3.4](docs/dev-retrospective.md)）
-- **ライブラリの列挙 ≠ 手元のリモコン**: 三菱リモコンに自動モード・送風・静音・風量 4 はなかった。テストベクトルは実機採取値に置き換えた（ADR-019）
-- **`digitalWrite` は `pinMode` 前だと無効**（core 3.x）。起動時のラッチ初期化は `gpio_set_level()` で行う
-- **失敗ログには理由コードを付ける**: `wifi_failed status=1` で 5GHz SSID が原因と即断できた
-
 ## 自分で動かす
 
 各ディレクトリの README を参照。おおまかには
@@ -87,8 +78,4 @@ Control a Mitsubishi air conditioner from an iPhone via Cloudflare and an ESP32 
 2. `firmware/aircon_bridge/`: `secrets.example.h` を `secrets.h` にコピーして SSID・パスワード・ホスト・トークンを記入（2.4GHz のみ）→ Arduino IDE で書き込み
 3. `ios/AirconRemote/`: `xcodegen generate` → Xcode で実行 → 設定画面に Worker の URL と APP_TOKEN を入力
 
-`secrets.h` と Worker のシークレットはリポジトリに含まれません。
-
-## ライセンス
-
-MIT
+`secrets.h` と Worker のシークレットはご自身の環境に合わせてください。
