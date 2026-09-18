@@ -34,9 +34,9 @@
 
 | 事象 | 原因 | 対処 | コミット |
 |---|---|---|---|
-| `ir_dump` が UNKNOWN ばかり返す | 受信モジュールの飽和と許容誤差 | 許容 35%、ノイズ閾値 50 bit、生タイミング出力を追加 | 49b714f |
-| `boot` の約5秒後に再起動を繰り返す | `enableCore1WDT()` が IDLE1 を監視対象に追加するだけで idle hook を登録しない。さらに `loop()` が IDLE1 に譲らない | Task WDT を「add / idle hook / delay(1)」の3点セットに変更。設計 §4.1 §4.4、ADR-006 へ反映 | 0cb7fd2, 250b481 |
-| `digitalWrite()` を `pinMode()` 前に呼ぶ手順が無効 | core 3.x は周辺管理に未登録のピンへの `digitalWrite()` を無視する | `gpio_set_level()` で出力レジスタを先に 0 にする | 0cb7fd2 |
+| `ir_dump` が UNKNOWN ばかり返す | 受信モジュールの飽和と許容誤差 | 許容 35%、ノイズ閾値 50 bit、生タイミング出力を追加 | 76b54ac |
+| `boot` の約5秒後に再起動を繰り返す | `enableCore1WDT()` が IDLE1 を監視対象に追加するだけで idle hook を登録しない。さらに `loop()` が IDLE1 に譲らない | Task WDT を「add / idle hook / delay(1)」の3点セットに変更。設計 §4.1 §4.4、ADR-006 へ反映 | 1663bc7, 16e8e08 |
+| `digitalWrite()` を `pinMode()` 前に呼ぶ手順が無効 | core 3.x は周辺管理に未登録のピンへの `digitalWrite()` を無視する | `gpio_set_level()` で出力レジスタを先に 0 にする | 1663bc7 |
 
 ### 判定
 
@@ -77,9 +77,9 @@
 
 | 事象 | 原因 | 対処 | コミット |
 |---|---|---|---|
-| `wifi_failed` を繰り返す | 5GHz SSID を指定していた。ESP32 は 2.4GHz のみ | 2.4GHz SSID へ変更。`wifi_failed` に status コードを付与し、`tools/wifi_scan` を追加 | 6b6260d |
-| vitest 5 と pool-workers の peer 衝突 | pool-workers 0.22 は vitest 4 系のみ | vitest を 4 系に固定 | 4f99bb1 |
-| `crypto.subtle.timingSafeEqual` が Node に無い | Cloudflare 固有 API | auth のテストを workers プロジェクトへ移動 | 63a5298 |
+| `wifi_failed` を繰り返す | 5GHz SSID を指定していた。ESP32 は 2.4GHz のみ | 2.4GHz SSID へ変更。`wifi_failed` に status コードを付与し、`tools/wifi_scan` を追加 | a013ad7 |
+| vitest 5 と pool-workers の peer 衝突 | pool-workers 0.22 は vitest 4 系のみ | vitest を 4 系に固定 | 1fdc86b |
+| `crypto.subtle.timingSafeEqual` が Node に無い | Cloudflare 固有 API | auth のテストを workers プロジェクトへ移動 | 75ee5b2 |
 
 ### 判定
 
