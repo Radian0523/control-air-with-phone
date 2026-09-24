@@ -52,13 +52,9 @@ struct ScheduleSection: View {
         .task { await load() }
     }
 
-    /// 次の00分（最短でも10分後）を初期値にする
+    /// 5分後がデフォルト
     private static func defaultExecuteAt() -> Date {
-        let cal = Calendar.current
-        let base = Date().addingTimeInterval(10 * 60)
-        var comps = cal.dateComponents([.year, .month, .day, .hour], from: base)
-        comps.hour = (comps.hour ?? 0) + 1
-        return cal.date(from: comps) ?? base
+        return Date().addingTimeInterval(5 * 60)
     }
 
     private func client() -> APIClient? {
@@ -67,7 +63,7 @@ struct ScheduleSection: View {
     }
 
     private func load() async {
-        guard let client = client() else { return } // 未設定の案内は操作画面側で出す
+        guard let client = client() else { return }  // 未設定の案内は操作画面側で出す
         loading = true; defer { loading = false }
         switch await client.getSchedule() {
         case .ok(let rec): current = rec; message = nil
