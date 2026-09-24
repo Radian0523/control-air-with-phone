@@ -2,7 +2,7 @@ import Foundation
 
 // 予約 API（design.md §5.5）。GET / PUT / DELETE の3操作だけ。
 struct ScheduleRecord: Codable, Equatable {
-    var executeAt: String   // UTC 正規形 YYYY-MM-DDTHH:mm:ssZ
+    var executeAt: String  // UTC 正規形 YYYY-MM-DDTHH:mm:ssZ
     var setting: Setting
 }
 
@@ -68,7 +68,7 @@ extension APIClient {
             default: return .unexpected(http.statusCode)
             }
         } catch let e as DecodingError {
-            return .unexpected(-1) // 200 だが形式が想定外
+            return .unexpected(-1)  // 200 だが形式が想定外
             _ = e
         } catch {
             return .network(error.localizedDescription)

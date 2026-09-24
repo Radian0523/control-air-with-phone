@@ -18,7 +18,8 @@ final class AppConfig: ObservableObject {
 
     var baseURL: URL? {
         guard let url = URL(string: baseURLString.trimmingCharacters(in: .whitespacesAndNewlines)),
-              url.scheme == "https", url.host != nil else { return nil }
+            url.scheme == "https", url.host != nil
+        else { return nil }
         return url
     }
 

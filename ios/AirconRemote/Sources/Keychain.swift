@@ -30,7 +30,8 @@ enum Keychain {
         ]
         var item: CFTypeRef?
         guard SecItemCopyMatching(query as CFDictionary, &item) == errSecSuccess,
-              let data = item as? Data else { return nil }
+            let data = item as? Data
+        else { return nil }
         return String(decoding: data, as: UTF8.self)
     }
 

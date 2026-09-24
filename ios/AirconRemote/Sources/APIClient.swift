@@ -2,14 +2,14 @@ import Foundation
 
 // Cloudflare の HTTPS API だけを呼ぶ（design.md §6）。202 は「送信要求を受け付けた」だけを意味する。
 enum CommandOutcome: Equatable {
-    case accepted            // 202
-    case badRequest          // 400
-    case unauthorized        // 401
-    case deviceOffline       // 503
-    case serverError         // 500
-    case unexpected(Int)     // それ以外の HTTP
-    case network(String)     // 通信できなかった
-    case notConfigured       // URL か APP_TOKEN が未設定
+    case accepted  // 202
+    case badRequest  // 400
+    case unauthorized  // 401
+    case deviceOffline  // 503
+    case serverError  // 500
+    case unexpected(Int)  // それ以外の HTTP
+    case network(String)  // 通信できなかった
+    case notConfigured  // URL か APP_TOKEN が未設定
 
     /// design.md §6 の表に対応する表示文言
     var message: String {

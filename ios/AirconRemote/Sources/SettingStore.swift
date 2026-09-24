@@ -15,7 +15,8 @@ final class SettingStore: ObservableObject {
 
     init() {
         if let data = UserDefaults.standard.data(forKey: Self.key),
-           let saved = try? JSONDecoder().decode(Setting.self, from: data) {
+            let saved = try? JSONDecoder().decode(Setting.self, from: data)
+        {
             setting = saved
         } else {
             setting = .default

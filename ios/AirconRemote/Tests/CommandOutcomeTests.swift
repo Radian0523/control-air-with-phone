@@ -1,4 +1,5 @@
 import XCTest
+
 @testable import AirconRemote
 
 // design.md §6 のエラー表の文言方針を固定する

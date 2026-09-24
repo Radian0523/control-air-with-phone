@@ -1,4 +1,5 @@
 import XCTest
+
 @testable import AirconRemote
 
 // Worker の validateSetting（design.md §5.4）が受理する JSON を生成できることを固定する。
