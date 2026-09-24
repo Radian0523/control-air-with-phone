@@ -48,12 +48,6 @@ struct ScheduleSection: View {
             if let message {
                 Label(message, systemImage: "exclamationmark.triangle").foregroundStyle(.orange)
             }
-        } header: {
-            Text("予約")
-        } footer: {
-            Text(current == nil
-                 ? "上の設定を、指定した時刻に1回だけ送ります。予約は1件だけ持てます。"
-                 : "新しく予約すると、現在の予約は置き換わります。")
         }
         .task { await load() }
     }
