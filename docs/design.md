@@ -83,6 +83,10 @@ BOOT
   → Wi-Fi OFF
   → 30秒待機
   → CONNECTING
+
+ONLINEへ10分戻れない / loop()が5分進まない
+  → 診断記録をNVSへ残す
+  → 再起動（ADR-021）
 ```
 
 ESP32の責務は次の3つだけとする。
@@ -93,11 +97,11 @@ ESP32の責務は次の3つだけとする。
 
 ### 4.2 持たない機能
 
-- アプリ独自のNVS永続データ
+- アプリ独自のNVS永続データ（§4.10の診断記録だけは例外。業務データは置かない）
 - JSONパーサー
 - コマンドID、アプリ用応答、エラーコード
 - アプリケーションキュー、再送、busyフラグ
-- 独自FreeRTOSタスク、タスク間キュー
+- 独自FreeRTOSタスク、タスク間キュー（loop()停止の見張りにesp_timerを1つだけ使う。ADR-021）
 - タイマー、タイムゾーン、繰り返し規則
 - HTTPサーバー、HTTPクライアント、mDNS
 - OTA
@@ -166,7 +170,12 @@ arduino-esp32 3.3.11のTLS handshakeは同期処理で、内部呼び出しが�
 3. 30秒待機
 4. Wi-Fi接続から再実行
 
-`CONNECTING`と`ONLINE`の間だけ`webSocket.loop()`を呼び、`OFF_WAIT`中は呼ばない。TEARDOWNでは`webSocket.disconnect()`を先に呼んでからWi-FiをOFFにする。これにより、arduinoWebSockets自身の再接続処理はOFF_WAIT中に動かない。通信失敗ではESP32を再起動しない。
+`CONNECTING`と`ONLINE`の間だけ`webSocket.loop()`を呼び、`OFF_WAIT`中は呼ばない。TEARDOWNでは`webSocket.disconnect()`を先に呼んでからWi-FiをOFFにする。これにより、arduinoWebSockets自身の再接続処理はOFF_WAIT中に動かない。1回ごとの通信失敗ではESP32を再起動しない。
+
+ただし、次の2つの場合は自力で戻れない状態とみなし、診断記録（§4.10）を残してから`ESP.restart()`する（ADR-021）。
+
+- ONLINEを離れてから10分たってもONLINEへ戻れない。OFF_WAIT中に判定する。起動直後もオフライン扱いとする
+- `loop()`が5分間一度も回らない。esp_timerで10秒ごとに確認する。CONNECTINGの最悪値（Wi-Fi 15秒＋NTP 10秒＋TLS内部最大120秒＋WebSocket 15秒の約160秒）より長くする。Task WDTの5秒はIDLE1用のまま変えない
 
 WebSocket接続は1回の`CONNECTING`につき1回だけ試す。`CONNECTING`へ入ったら`setReconnectInterval(0)`として最初の`webSocket.loop()`を1回呼び、接続試行を直ちに開始する。その直後に`setReconnectInterval(30000)`へ変更し、以後も`webSocket.loop()`を呼んで開始済みのhandshakeを進める。最初の試行が失敗しても、15秒の`CONNECTING`中にライブラリ内部の再接続は起こさない。接続完了前に15秒を過ぎたらTEARDOWNへ移る。ただし、TLS内部呼び出しがブロックしている間は15秒を超えうる。
 
@@ -204,10 +213,13 @@ CA bundleは、単一CAやcommon CAだけへ絞らず、Mozilla NSS root store�
 
 状態変化だけを出力する。
 
-- `boot`
-- `wifi_connected` / `wifi_failed status=<WiFi.status()の数値>`
+- `boot reset_reason=<esp_reset_reason()の数値>`
+- `diag ...`（起動時に診断記録を古い順に出す。§4.10）
+- `wifi_connected` / `wifi_failed status=<WiFi.status()の数値> reason=<Wi-Fi切断理由>`
+- `wifi_lost reason=<Wi-Fi切断理由>`（ONLINE中にWi-Fiが切れた時）
 - `time_synced` / `time_failed`
-- `ws_connected` / `ws_failed` / `ws_disconnected`
+- `ws_connected` / `ws_failed` / `ws_disconnected reason="<ライブラリの理由文字列>" wifi=<WiFi.status()> uptime_s=<秒>`
+- `offline_restart wifi_fails=<回数> ws_fails=<回数> time_fails=<回数>`
 - `ir_sent` / `invalid_frame`
 
 SSID、パスワード、Bearer token、36文字payload、heartbeat成功、待機中の繰り返しログは出力しない。
@@ -222,6 +234,23 @@ SSID、パスワード、Bearer token、36文字payload、heartbeat成功、待�
 | RAMピーク | 約100KB / 320KB |
 
 TLS接続中のRAMピークは実測する。
+
+2026-11-03の実測（AIRCON_DEBUG_HEAP）: ONLINE中のfree heapは約182KBで1.7時間減らず、最小値は約169KB。TLS接続は2.5〜3秒。
+
+### 4.10 診断記録
+
+USBアダプタで運用している間はシリアルログが見えない。自力で戻れなかった時に何が起きたかを後から読むため、次の4種類の出来事だけをNVSの固定長リング（直近16件、namespace `diag`）へ残す。
+
+| 種類 | 記録する時 | 主な値 |
+|---|---|---|
+| `boot` | 起動ごと | `a`=esp_reset_reason（1 電源投入、3 ソフトウェア再起動、4 panic、6 Task WDT、9 brownout） |
+| `ws_lost` | ONLINEで切断を検知した時 | `a`=WiFi.status()、`b`=理由の種類（0 なし、1 Connection lost、2 その他）、`rssi` |
+| `offline_restart` | 10分戻れず再起動する直前 | `a`=最後のWiFi.status()、`b`=最後のWi-Fi切断理由、`c`/`d`/`e`=Wi-Fi/WebSocket/NTPの失敗回数、`rssi`=最後のWebSocket失敗時の値 |
+| `loop_stall` | `loop()`停止で再起動した後の起動時 | `a`=停止した時の状態（0 CONNECTING、1 ONLINE、2 TEARDOWN、3 OFF_WAIT） |
+
+`epoch`は時刻同期済みならUTC秒、未同期なら0。`up`は起動からの秒数。書き込みは状態が変わる時だけなので、通常運用では1日に数十回程度に収まる。`loop_stall`はesp_timerのコールバックからNVSを書かず、RTCメモリに印を残して次の起動時に記録する。
+
+読み方: ESP32をMacへUSB接続し、115200 bpsでシリアルモニタを開く。接続時のリセットで起動し、`diag ...`行が出る。
 
 ## 5. Cloudflare
 
@@ -502,6 +531,7 @@ Emitter ─────────── GND
 | 202だがエアコンが動かない | 古いsocketへ送った、ESP32未処理、赤外線未達、エアコン未受理のいずれか | ESP32の再接続を最大「現在の接続試行時間＋30秒程度」待ち、一度だけ再操作する。続くなら電源、IR LED、USBシリアルを確認 |
 | Wi-Fi接続ログは出るがWebSocket失敗が続く | 接続先、DEVICE_TOKEN、時刻、証明書、CA bundleのいずれか | シリアルログとbundleの生成元・取得日を確認する |
 | 送信時にESP32が再起動 | 電源または過電流の可能性 | 5V、3.3V、各LED電流を測る |
+| 503が10分以上続く、または繰り返す | ESP32が自力で戻れていない | ESP32をMacへつなぎ、`diag`行（§4.10）で再起動理由と失敗段階を確認する |
 | 予約だけ動かない | 予約、Alarm、発火時接続のいずれか | `GET /schedule`、次に予約発火ログを確認 |
 
 管理対象は、Workerプロジェクト1つ、Durable Object 1個、secret 2つ、予約1件、ESP32ファーム1つ、iOSアプリ1つだけとする。

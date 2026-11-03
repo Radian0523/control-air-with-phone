@@ -9,7 +9,7 @@ iPhone → Cloudflare Worker / Durable Object → WebSocket (TLS) → ESP32 → 
 
 - iPhone アプリから電源・モード・温度・風量・風向を設定して即時送信
 - 「この時刻にこの設定で」の一発予約 1 件（Durable Object の Alarm で発火）
-- ESP32 は常時 WebSocket 接続。電源断やルーター再起動後は 30 秒周期で自動復帰
+- ESP32 は常時 WebSocket 接続。切断後は 30 秒周期で再接続し、10 分戻れなければ自動で再起動（ADR-021）
 - 外出先からも同じ操作（LAN 直通経路は作らず、クラウド経由のみ。ADR-002）
 
 ## 構成
@@ -41,7 +41,7 @@ iPhone → Cloudflare Worker / Durable Object → WebSocket (TLS) → ESP32 → 
 | クラウド | Cloudflare Workers, Durable Objects (SQLite, WebSocket Hibernation, Alarm), TypeScript, wrangler, vitest + `@cloudflare/vitest-pool-workers` |
 | ファーム | arduino-esp32 3.3.11, IRremoteESP8266, arduinoWebSockets, Mozilla CA bundle (`gen_crt_bundle.py`) |
 | ハード | ESP32-WROOM-32, S8050 + 100Ω ×3 で IR LED 駆動（約 36 mA/個）, 回路図は CircuiTikZ |
-| ドキュメント | 設計書, ADR ×20, レビュー記録, 試験記録, 振り返り |
+| ドキュメント | 設計書, ADR ×21, レビュー記録, 試験記録, 振り返り |
 
 テスト: Cloudflare 49 件（純粋関数 + workerd 上の統合）, iOS 12 件, ファームは host 側で `ir_frame.h` の単体テスト。
 
@@ -61,7 +61,7 @@ iPhone → Cloudflare Worker / Durable Object → WebSocket (TLS) → ESP32 → 
 | 文書 | 内容 |
 |---|---|
 | [docs/design.md](docs/design.md) | 現行仕様（API、機器プロトコル、フレーム規則、ログ、障害判断表） |
-| [docs/adr.md](docs/adr.md) | 設計判断 ADR-001〜020。なぜその構成にしたか |
+| [docs/adr.md](docs/adr.md) | 設計判断 ADR-001〜021。なぜその構成にしたか |
 | [docs/review-2026-09-13.md](docs/review-2026-09-13.md) | 実装前の設計レビュー 2 往復（17 件） |
 | [docs/implementation-plan.md](docs/implementation-plan.md) | 8 段階の実装計画と通過条件、進行表 |
 | [docs/ir-captures.md](docs/ir-captures.md) | 実機リモコンの赤外線採取と規則の導出 |
