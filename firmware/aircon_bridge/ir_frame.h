@@ -1,4 +1,5 @@
-// ir_frame.h — 36文字の大文字16進テキストを18バイトへ変換する（design.md §4.3）
+// ir_frame.h — 機器向けテキストを赤外線データへ変換する（design.md §4.3）
+//   36文字 → エアコンの18バイト / 8文字 → 照明の NEC 32bit（ADR-022）
 //
 // 本番ファーム aircon_bridge でも同じ内容を使う。Arduino IDE はスケッチ外の
 // ヘッダを参照できないため、段階3で aircon_bridge/ へコピーし、両方を同一に保つ。
@@ -12,6 +13,7 @@ namespace ir_frame {
 
 constexpr size_t kTextLength = 36;
 constexpr size_t kStateLength = 18;
+constexpr size_t kLightTextLength = 8;
 
 // '0'〜'9'、'A'〜'F' だけを受理する。小文字は不正入力（§4.3）。
 inline bool hexValue(char c, uint8_t &out) {
@@ -30,6 +32,20 @@ inline bool parse(const char *text, size_t len, uint8_t state[kStateLength]) {
     if (!hexValue(text[2 * i], hi) || !hexValue(text[2 * i + 1], lo)) return false;
     state[i] = static_cast<uint8_t>((hi << 4) | lo);
   }
+  return true;
+}
+
+// text[0..len) が正しい8文字なら NEC の32bit値を code に書き込んで true を返す（ADR-022）。
+// 文字の規則は36文字と同じ。どのボタンかの判断はクラウドが持ち、ここでは値を検査しない。
+inline bool parseLight(const char *text, size_t len, uint32_t &code) {
+  if (text == nullptr || len != kLightTextLength) return false;
+  uint32_t v = 0;
+  for (size_t i = 0; i < kLightTextLength; i++) {
+    uint8_t d;
+    if (!hexValue(text[i], d)) return false;
+    v = (v << 4) | d;
+  }
+  code = v;
   return true;
 }
 

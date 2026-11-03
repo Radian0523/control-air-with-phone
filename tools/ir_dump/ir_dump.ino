@@ -28,8 +28,9 @@ decode_results results;
 void setup() {
   Serial.begin(115200);
   delay(500);
-  // 短いノイズ（25 bit 程度）は表示しない。三菱ACは 144 bit
-  irrecv.setUnknownThreshold(50);
+  // 解読できない短い信号の下限。三菱ACは 144 bit、照明リモコンは 32〜48 bit 程度が多いので
+  // 照明も拾える 20 にする。数 bit の UNKNOWN が出たらノイズとして無視する
+  irrecv.setUnknownThreshold(20);
   // 受信モジュール個体差でパルス幅がずれることがあるので、許容を既定の 25% から広げる
   irrecv.setTolerance(kTolerance + 10);
   irrecv.enableIRIn();

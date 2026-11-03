@@ -15,6 +15,7 @@
 - 外出先から操作する
 - 電源、モード、温度、風量、風向を指定する
 - 一発予約を1件だけ設定・確認・取消する
+- 照明（オーデリック NRL-3321 のリモコンで動く天井照明）を全灯・ECO・常夜灯・消灯の4ボタンで即時操作する（ADR-022）
 
 ### 実装しないもの
 
@@ -24,6 +25,7 @@
 - エアコンが命令を受理したことの検出
 - OTA、遠隔ファーム更新
 - Wi-Fi再設定画面やAPフォールバック
+- 照明の予約、調光、状態表示
 
 ## 2. 制約
 
@@ -93,7 +95,7 @@ ESP32の責務は次の3つだけとする。
 
 1. Wi-Fiへ接続する
 2. CloudflareとのWebSocket over TLS接続を維持する
-3. 正しい36文字を18バイトへ変換し、赤外線で送信する
+3. 正しい36文字（エアコン）または8文字（照明）を赤外線で送信する
 
 ### 4.2 持たない機能
 
@@ -110,21 +112,22 @@ Wi-Fi資格情報、Cloudflare接続先、DEVICE_TOKEN、CA bundleはファー�
 
 ### 4.3 機器向けメッセージ
 
-CloudflareからESP32へ送るアプリケーションメッセージは、WebSocketのテキストフレーム1種類だけとする。
+CloudflareからESP32へ送るアプリケーションメッセージは、WebSocketのテキストフレームだけとし、長さで2種類を区別する（ADR-010、ADR-022）。
 
 ```text
-23CB260100201008325800000000001000E7
+23CB260100201008325800000000001000E7   エアコン（36文字）
+01A359A6                               照明（8文字）
 ```
 
-| 規則 | 値 |
-|---|---|
-| 長さ | 36文字ちょうど（18バイト） |
-| 文字 | ASCII `0`〜`9`、`A`〜`F`のみ |
-| 赤外線方式 | `MITSUBISHI_AC`固定 |
-| アプリ用応答 | なし |
-| 不正入力 | 赤外線送信せず、応答せず捨てる |
+| 規則 | エアコン | 照明 |
+|---|---|---|
+| 長さ | 36文字ちょうど（18バイト） | 8文字ちょうど（32bit） |
+| 文字 | ASCII `0`〜`9`、`A`〜`F`のみ | 同じ |
+| 赤外線方式 | `MITSUBISHI_AC`固定 | `NEC` 32bit固定 |
+| アプリ用応答 | なし | なし |
+| 不正入力 | 赤外線送信せず、応答せず捨てる | 同じ |
 
-小文字、空白、改行、長さ違い、binary frameは不正入力とする。固定長`uint8_t state[18]`へ変換し、`IRsend::send(MITSUBISHI_AC, state, 18)`を呼ぶ。
+小文字、空白、改行、上記以外の長さ、binary frameは不正入力とする。36文字は固定長`uint8_t state[18]`へ変換し、`IRsend::send(MITSUBISHI_AC, state, 18)`を呼ぶ。8文字は`uint32_t`へ変換し、`IRsend::sendNEC(code, 32)`を呼ぶ。8文字がどのボタンかをESP32は判断しない。
 
 WebSocketプロトコルのpongはライブラリへ任せる。これはアプリケーションメッセージには数えない。
 
@@ -343,6 +346,7 @@ iOSアプリは操作ごとに全項目を送る。
 |---|---|---|
 | `GET /device/ws` | ESP32 | WebSocket upgrade。認証成功で101。新接続を正とする |
 | `POST /command` | iPhone | 即時操作。設定を36文字へ変換してdevice socketへ書く |
+| `POST /light` | iPhone | 照明の即時操作。`{ "button": "on" \| "off" \| "eco" \| "mame" }`を8文字へ変換してdevice socketへ書く |
 | `GET /schedule` | iPhone | 予約1件または`null`を返す |
 | `PUT /schedule` | iPhone | 予約を作成または置換する |
 | `DELETE /schedule` | iPhone | 予約とAlarmを削除する |
@@ -364,7 +368,7 @@ iOSアプリは操作ごとに全項目を送る。
 
 予約がなければ200 `null`を返す。`null`は「現在有効な予約がない」ことだけを表し、発火済みとキャンセル済みを区別しない。予約履歴は保存しない。
 
-`POST /command`の結果は次のとおり。
+`POST /command`と`POST /light`の結果は次のとおり。`/light`の400は`button`が4値以外の場合。
 
 | HTTP | 意味 |
 |---|---|
@@ -382,11 +386,12 @@ HTTP 202はESP32の処理完了やエアコンの受理を意味しない。ESP3
 
 - `device_connected` / `device_disconnected`
 - `command_sent` / `command_offline`
+- `light_sent` / `light_offline`（`button`を付ける）
 - `schedule_set` / `schedule_deleted`
 - `schedule_fired_sent` / `schedule_fired_offline`
 - `server_error`
 
-Bearer token、36文字payload、エアコン設定、heartbeat成功、通常待機は記録しない。
+Bearer token、36文字・8文字payload、エアコン設定、heartbeat成功、通常待機は記録しない。
 
 ## 6. iOSアプリ
 
@@ -396,6 +401,7 @@ Bearer token、36文字payload、エアコン設定、heartbeat成功、通常�
 - 操作ごとに全設定を送る
 - 202は「送信要求を受け付けました」と表示し、「エアコンが動きました」と表示しない
 - 予約はGET、PUT、DELETEの3操作だけとし、操作画面の中に置く（別画面は設定だけ）
+- 照明は操作画面の先頭に4ボタン（全灯、ECO、常夜灯、消灯）を置き、押したボタンを`POST /light`で1回だけ送る。照明の状態は保存も表示もしない
 - 予約は最大1件で、新規保存は既存予約を置き換える
 - `executeAt`はUTCへ変換し、小数秒なしの`YYYY-MM-DDTHH:mm:ssZ`で送る
 - LAN探索、Bonjour、ローカルネットワーク権限を使わない

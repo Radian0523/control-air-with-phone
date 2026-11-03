@@ -1,7 +1,8 @@
-// エアコン設定（design.md §5.4）と executeAt（§5.2）の検証。純粋関数。
+// エアコン設定（design.md §5.4）、照明ボタン（§5.5、ADR-022）、executeAt（§5.2）の検証。純粋関数。
 // 現在時刻は引数で受け取り、テストで固定できるようにする。
 
 import { TEMP_MAX, TEMP_MIN, type Fan, type Mode, type Setting, type Vane } from "./encoder";
+import { LIGHT_BUTTONS, type LightButton } from "./light";
 
 export type Result<T> = { ok: true; value: T } | { ok: false; error: string };
 
@@ -35,6 +36,14 @@ export function validateSetting(input: unknown): Result<Setting> {
   if (!oneOf(vane, VANES)) return { ok: false, error: "vane must be one of " + VANES.join("/") };
 
   return { ok: true, value: { power, mode, temp, fan, vane } };
+}
+
+/** POST /light の body。`{ "button": "on" | "off" | "eco" | "mame" }` だけを受理する */
+export function validateLight(input: unknown): Result<LightButton> {
+  if (!isRecord(input)) return { ok: false, error: "body must be an object" };
+  const { button } = input;
+  if (!oneOf(button, LIGHT_BUTTONS)) return { ok: false, error: "button must be one of " + LIGHT_BUTTONS.join("/") };
+  return { ok: true, value: button };
 }
 
 // §5.2: UTC の正規形だけを受理する。小数秒、オフセット表記、小文字の z は不可

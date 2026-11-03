@@ -1,9 +1,10 @@
 // Durable Object "home"（design.md §5.1、§5.2、ADR-018）。
 // ESP32 の device WebSocket を最大1本、Hibernation API で保持する。
-// device WebSocket の受け入れと置換、即時操作、一発予約（1件）と Alarm を持つ。
+// device WebSocket の受け入れと置換、即時操作（エアコン・照明）、一発予約（1件）と Alarm を持つ。
 
 import { DurableObject } from "cloudflare:workers";
 import { encode, type Setting } from "./encoder";
+import { encodeLight, type LightButton } from "./light";
 import { log } from "./log";
 
 export interface Env {
@@ -77,7 +78,7 @@ export class Home extends DurableObject<Env> {
   }
 
   /**
-   * 36文字を device socket へ1回だけ送る（§5.5）。
+   * 36文字または8文字を device socket へ1回だけ送る（§5.5）。
    * 接続なし、閉じている、send() が同期的に例外 → false（503 相当）。送信できたら true（202 相当）。
    * 設計どおり、ESP32 の処理完了やエアコンの受理は確認しない。
    */
@@ -146,6 +147,16 @@ export class Home extends DurableObject<Env> {
       return { ok: true };
     }
     log("command_offline");
+    return { ok: false, error: "device_offline" };
+  }
+
+  /** POST /light（§5.5、ADR-022）。検証済みのボタンを8文字へ変換して送る */
+  async light(button: LightButton): Promise<{ ok: true } | { ok: false; error: "device_offline" }> {
+    if (this.sendToDevice(encodeLight(button))) {
+      log("light_sent", { button });
+      return { ok: true };
+    }
+    log("light_offline", { button });
     return { ok: false, error: "device_offline" };
   }
 }

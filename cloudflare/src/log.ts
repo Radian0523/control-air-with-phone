@@ -1,11 +1,13 @@
 // 運用ログ（design.md §5.6）。各行を JSON にし、time と event だけを必須にする。
-// Bearer token、36文字 payload、エアコン設定は絶対に渡さない。
+// Bearer token、36文字・8文字 payload、エアコン設定は絶対に渡さない。
 
 export type LogEvent =
   | "device_connected"
   | "device_disconnected"
   | "command_sent"
   | "command_offline"
+  | "light_sent"
+  | "light_offline"
   | "schedule_set"
   | "schedule_deleted"
   | "schedule_fired_sent"

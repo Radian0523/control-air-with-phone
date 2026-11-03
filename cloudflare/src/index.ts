@@ -1,10 +1,10 @@
 // Worker 入口（design.md §5.5）。認証境界とルーティングだけを持つ。
-// 入口は5つ（§5.5）: GET /device/ws、POST /command、GET/PUT/DELETE /schedule
+// 入口は6つ（§5.5）: GET /device/ws、POST /command、POST /light、GET/PUT/DELETE /schedule
 
 import { bearerMatches } from "./auth";
 import { Home, type Env } from "./home";
 import { log } from "./log";
-import { validateExecuteAt, validateSetting } from "./validate";
+import { validateExecuteAt, validateLight, validateSetting } from "./validate";
 
 export { Home };
 
@@ -45,6 +45,23 @@ export default {
         if (!v.ok) return json(400, { error: "bad_request" });
         const stub = env.HOME.get(env.HOME.idFromName("home"));
         const result = await stub.command(v.value);
+        return result.ok ? json(202, { ok: true }) : json(503, { error: result.error });
+      }
+      if (url.pathname === "/light") {
+        if (request.method !== "POST") return json(405, { error: "method_not_allowed" });
+        if (!(await bearerMatches(request.headers.get("Authorization"), env.APP_TOKEN))) {
+          return json(401, { error: "unauthorized" });
+        }
+        let body: unknown;
+        try {
+          body = await request.json();
+        } catch {
+          return json(400, { error: "bad_request" });
+        }
+        const v = validateLight(body);
+        if (!v.ok) return json(400, { error: "bad_request" });
+        const stub = env.HOME.get(env.HOME.idFromName("home"));
+        const result = await stub.light(v.value);
         return result.ok ? json(202, { ok: true }) : json(503, { error: result.error });
       }
       if (url.pathname === "/schedule") {
