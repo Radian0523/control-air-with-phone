@@ -67,3 +67,25 @@ extension Setting {
         s.power ? "\(s.mode.label) \(s.temp)℃ 風量\(s.fan.label) 風向\(s.vane.label)" : "電源OFF"
     }
 }
+
+// 照明（オーデリック NRL-3321）のボタン。JSON の値は POST /light の button と一致させる（ADR-022）
+enum LightButton: String, Codable, CaseIterable, Identifiable {
+    case on, eco, mame, off
+    var id: String { rawValue }
+    var label: String {
+        switch self {
+        case .on: "全灯"
+        case .eco: "ECO"
+        case .mame: "常夜灯"
+        case .off: "消灯"
+        }
+    }
+    var systemImage: String {
+        switch self {
+        case .on: "lightbulb.max"
+        case .eco: "leaf"
+        case .mame: "moon"
+        case .off: "lightbulb.slash"
+        }
+    }
+}

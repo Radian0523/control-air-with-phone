@@ -41,6 +41,17 @@ int main() {
   withNul[10] = '\0';
   check(!ir_frame::parse(withNul, 36, st), "埋め込みNULは拒否");
 
+  // 照明の8文字（ADR-022）
+  uint32_t code = 0;
+  check(ir_frame::parseLight("01A359A6", 8, code) && code == 0x01A359A6u, "照明8文字を32bitへ変換");
+  check(!ir_frame::parseLight("01a359a6", 8, code), "照明: 小文字は拒否");
+  check(!ir_frame::parseLight("01A359A", 7, code), "照明: 7文字は拒否");
+  check(!ir_frame::parseLight("01A359A60", 9, code), "照明: 9文字は拒否");
+  check(!ir_frame::parseLight("01A359G6", 8, code), "照明: 16進以外は拒否");
+  check(!ir_frame::parseLight(nullptr, 8, code), "照明: nullptr は拒否");
+  check(!ir_frame::parse("01A359A6", 8, st), "8文字はエアコンとしては拒否");
+  check(!ir_frame::parseLight(good, 36, code), "36文字は照明としては拒否");
+
   std::printf("%s (%d failures)\n", failures == 0 ? "ALL PASSED" : "FAILED", failures);
   return failures == 0 ? 0 : 1;
 }

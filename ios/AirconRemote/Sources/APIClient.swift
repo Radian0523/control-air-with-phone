@@ -34,13 +34,22 @@ struct APIClient {
     var session: URLSession = .shared
 
     func sendCommand(_ setting: Setting) async -> CommandOutcome {
-        var request = URLRequest(url: baseURL.appending(path: "command"))
+        await post(path: "command", body: setting)
+    }
+
+    /// 照明（ADR-022）。応答の扱いはエアコンの即時操作と同じ
+    func sendLight(_ button: LightButton) async -> CommandOutcome {
+        await post(path: "light", body: ["button": button.rawValue])
+    }
+
+    private func post(path: String, body: some Encodable) async -> CommandOutcome {
+        var request = URLRequest(url: baseURL.appending(path: path))
         request.httpMethod = "POST"
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.timeoutInterval = 15
         do {
-            request.httpBody = try JSONEncoder().encode(setting)
+            request.httpBody = try JSONEncoder().encode(body)
         } catch {
             return .badRequest
         }

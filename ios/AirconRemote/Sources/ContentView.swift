@@ -1,6 +1,6 @@
 import SwiftUI
 
-// 操作画面。設定 → 今すぐ送る / 予約 を1画面に置く。別画面は設定（SettingsView）だけ。
+// 操作画面。照明 → エアコンの設定 → 今すぐ送る / 予約 を1画面に置く。別画面は設定（SettingsView）だけ。
 struct ContentView: View {
     @EnvironmentObject private var config: AppConfig
     @EnvironmentObject private var store: SettingStore
@@ -22,7 +22,9 @@ struct ContentView: View {
                     }
                 }
 
-                Section {
+                LightSection()
+
+                Section("エアコン") {
                     Toggle("電源", isOn: $store.setting.power)
                     Group {
                         Picker("モード", selection: $store.setting.mode) {

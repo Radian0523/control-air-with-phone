@@ -1,6 +1,6 @@
 # control-air-with-phone
 
-iPhone から三菱電機エアコンを操作する個人プロジェクト。
+iPhone から三菱電機エアコンと天井照明を操作する個人プロジェクト。
 iPhone → Cloudflare Worker / Durable Object → WebSocket (TLS) → ESP32 → 赤外線 → エアコン。
 
 ![IR driver circuit](docs/circuit/ir_driver.png)
@@ -9,6 +9,7 @@ iPhone → Cloudflare Worker / Durable Object → WebSocket (TLS) → ESP32 → 
 
 - iPhone アプリから電源・モード・温度・風量・風向を設定して即時送信
 - 「この時刻にこの設定で」の一発予約 1 件（Durable Object の Alarm で発火）
+- 照明（オーデリック）を全灯・ECO・常夜灯・消灯の 4 ボタンで操作（ADR-022）
 - ESP32 は常時 WebSocket 接続。切断後は 30 秒周期で再接続し、10 分戻れなければ自動で再起動（ADR-021）
 - 外出先からも同じ操作（LAN 直通経路は作らず、クラウド経由のみ。ADR-002）
 
@@ -18,20 +19,20 @@ iPhone → Cloudflare Worker / Durable Object → WebSocket (TLS) → ESP32 → 
  iPhone (SwiftUI)
     │  HTTPS + Bearer(APP_TOKEN)
     ▼
- Cloudflare Worker ── 認証・API (/command, /schedule)
+ Cloudflare Worker ── 認証・API (/command, /light, /schedule)
     │  RPC
     ▼
- Durable Object "home" ── 18 バイトの赤外線フレームを生成、予約 1 件を保持、Alarm
+ Durable Object "home" ── エアコンの 18 バイト / 照明の NEC コードを生成、予約 1 件を保持、Alarm
     │  WebSocket over TLS (Hibernation)、Bearer(DEVICE_TOKEN)
     ▼
- ESP32-WROOM-32 ── 36 文字の HEX を受けて IRremoteESP8266 で送信するだけ
+ ESP32-WROOM-32 ── 36 文字（エアコン）/ 8 文字（照明）の HEX を受けて IRremoteESP8266 で送信するだけ
     │  GPIO4 → S8050 → IR LED ×3 (940nm)
     ▼
- 三菱電機 エアコン (MITSUBISHI_AC, 144 bit)
+ 三菱電機 エアコン (MITSUBISHI_AC, 144 bit) / オーデリック 照明 (NEC, 32 bit)
 ```
 
 設計の要点は「ESP32 を最小にし、判断はすべてクラウドに置く」（ADR-001, 008）。
-機器プロトコルは片方向で、Durable Object → ESP32 に 36 文字の大文字 HEX を 1 フレーム送るだけ（ADR-010）。ESP32 は返答せず、不正入力は黙って捨てる。
+機器プロトコルは片方向で、Durable Object → ESP32 に 36 文字（エアコン）か 8 文字（照明）の大文字 HEX を 1 フレーム送るだけ（ADR-010, 022）。ESP32 は返答せず、不正入力は黙って捨てる。
 
 ## 技術スタック
 
@@ -41,9 +42,9 @@ iPhone → Cloudflare Worker / Durable Object → WebSocket (TLS) → ESP32 → 
 | クラウド | Cloudflare Workers, Durable Objects (SQLite, WebSocket Hibernation, Alarm), TypeScript, wrangler, vitest + `@cloudflare/vitest-pool-workers` |
 | ファーム | arduino-esp32 3.3.11, IRremoteESP8266, arduinoWebSockets, Mozilla CA bundle (`gen_crt_bundle.py`) |
 | ハード | ESP32-WROOM-32, S8050 + 100Ω ×3 で IR LED 駆動（約 36 mA/個）, 回路図は CircuiTikZ |
-| ドキュメント | 設計書, ADR ×21, レビュー記録, 試験記録, 振り返り |
+| ドキュメント | 設計書, ADR ×22, レビュー記録, 試験記録, 振り返り |
 
-テスト: Cloudflare 49 件（純粋関数 + workerd 上の統合）, iOS 12 件, ファームは host 側で `ir_frame.h` の単体テスト。
+テスト: Cloudflare 57 件（純粋関数 + workerd 上の統合）, iOS 15 件, ファームは host 側で `ir_frame.h` の単体テスト。
 
 ## リポジトリ構成
 
@@ -53,7 +54,7 @@ iPhone → Cloudflare Worker / Durable Object → WebSocket (TLS) → ESP32 → 
 | [`firmware/aircon_bridge/`](firmware/aircon_bridge/) | 本番ファーム（状態機械、TLS、Task WDT） |
 | [`firmware/ir_serial_test/`](firmware/ir_serial_test/) | Wi-Fi なしでシリアルから赤外線を出す試験スケッチ |
 | [`ios/AirconRemote/`](ios/AirconRemote/) | SwiftUI アプリ（設定・操作・予約） |
-| [`tools/`](tools/) | 赤外線の採取・解析、回路電圧の測定、Wi-Fi スキャン用スケッチ |
+| [`tools/`](tools/) | 赤外線の採取・解析、照明の送信試験、回路電圧の測定、Wi-Fi スキャン用スケッチ |
 | [`docs/`](docs/) | 下記 |
 
 ## ドキュメント
@@ -61,7 +62,7 @@ iPhone → Cloudflare Worker / Durable Object → WebSocket (TLS) → ESP32 → 
 | 文書 | 内容 |
 |---|---|
 | [docs/design.md](docs/design.md) | 現行仕様（API、機器プロトコル、フレーム規則、ログ、障害判断表） |
-| [docs/adr.md](docs/adr.md) | 設計判断 ADR-001〜021。なぜその構成にしたか |
+| [docs/adr.md](docs/adr.md) | 設計判断 ADR-001〜022。なぜその構成にしたか |
 | [docs/review-2026-09-13.md](docs/review-2026-09-13.md) | 実装前の設計レビュー 2 往復（17 件） |
 | [docs/implementation-plan.md](docs/implementation-plan.md) | 8 段階の実装計画と通過条件、進行表 |
 | [docs/ir-captures.md](docs/ir-captures.md) | 実機リモコンの赤外線採取と規則の導出 |

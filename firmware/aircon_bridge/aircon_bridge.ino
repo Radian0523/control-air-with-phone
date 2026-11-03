@@ -4,7 +4,7 @@
 //  責務は3つだけ（§4.1）:
 //    1. Wi-Fi へ接続する
 //    2. Cloudflare との WebSocket over TLS 接続を維持する
-//    3. 正しい36文字を18バイトへ変換し、赤外線で送信する
+//    3. 正しい36文字（エアコン）または8文字（照明）を赤外線で送信する
 //
 //  状態機械:
 //    BOOT → CONNECTING（Wi-Fi 15s → 必要時だけ NTP 10s → WebSocket 15s）→ ONLINE
@@ -228,7 +228,17 @@ void onWebSocketEvent(WStype_t type, uint8_t *payload, size_t length) {
     }
 
     case WStype_TEXT: {
-      // §4.3 / §4.4: 正しい36文字だけを同期送信。応答は返さない
+      // §4.3 / §4.4: 正しい36文字（エアコン）か8文字（照明、ADR-022）だけを同期送信。応答は返さない
+      if (length == ir_frame::kLightTextLength) {
+        uint32_t code;
+        if (!ir_frame::parseLight(reinterpret_cast<const char *>(payload), length, code)) {
+          logEvent("invalid_frame");
+          break;
+        }
+        irsend.sendNEC(code, kNECBits);
+        logEvent("ir_sent");
+        break;
+      }
       uint8_t stateBytes[ir_frame::kStateLength];
       if (!ir_frame::parse(reinterpret_cast<const char *>(payload), length, stateBytes)) {
         logEvent("invalid_frame");
