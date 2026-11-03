@@ -1,0 +1,19 @@
+<!-- アプリアイコンの元絵。rsvg-convert で 1024px PNG にして AppIcon.appiconset へ置く -->
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2F80ED"/>
+      <stop offset="1" stop-color="#1A56C4"/>
+    </linearGradient>
+  </defs>
+  <rect width="1024" height="1024" fill="url(#bg)"/>
+  <!-- 家 -->
+  <path d="M512 196 L842 470 L762 470 L762 812 L262 812 L262 470 L182 470 Z"
+        fill="#FFFFFF" stroke="#FFFFFF" stroke-width="40" stroke-linejoin="round"/>
+  <!-- 赤外線の点と電波 -->
+  <circle cx="512" cy="700" r="42" fill="#1A56C4"/>
+  <g fill="none" stroke="#1A56C4" stroke-width="40" stroke-linecap="round">
+    <path d="M432 620 A113 113 0 0 1 592 620"/>
+    <path d="M375 563 A194 194 0 0 1 649 563"/>
+  </g>
+</svg>
