@@ -1,4 +1,4 @@
-# control-air-with-phone
+# home-ir-remote（おうちリモコン）
 
 iPhone から三菱電機エアコンと天井照明を操作する個人プロジェクト。
 iPhone → Cloudflare Worker / Durable Object → WebSocket (TLS) → ESP32 → 赤外線 → エアコン。

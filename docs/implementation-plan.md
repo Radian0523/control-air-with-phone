@@ -9,7 +9,7 @@
 ## リポジトリ構成
 
 ```text
-control-air-with-phone/
+home-ir-remote/
 ├ docs/                         設計・ADR・レビュー・本計画・採取記録
 ├ tools/                        既存の解析スケッチ（ir_dump, ir_led_check, ir_loopback_test）
 ├ cloudflare/                   Worker + Durable Object（wrangler プロジェクト）
