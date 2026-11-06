@@ -3,8 +3,6 @@ import SwiftUI
 // 照明（ADR-022）。操作画面の Form に組み込む1セクション。押したボタンを1回だけ送る。
 // 状態は持たない（照明の今の状態は誰にもわからない）。
 struct LightSection: View {
-    @EnvironmentObject private var config: AppConfig
-
     @State private var sending: LightButton?
     @State private var outcome: CommandOutcome?
 
@@ -39,12 +37,8 @@ struct LightSection: View {
     }
 
     private func send(_ button: LightButton) async {
-        guard let url = config.baseURL, let token = config.token else {
-            outcome = .notConfigured
-            return
-        }
         sending = button
         defer { sending = nil }
-        outcome = await APIClient(baseURL: url, token: token).sendLight(button)
+        outcome = await RemoteActions.sendLight(button)
     }
 }

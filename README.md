@@ -10,6 +10,7 @@ iPhone → Cloudflare Worker / Durable Object → WebSocket (TLS) → ESP32 → 
 - iPhone アプリから電源・モード・温度・風量・風向を設定して即時送信
 - 「この時刻にこの設定で」の一発予約 1 件（Durable Object の Alarm で発火）
 - 照明（オーデリック）を全灯・ECO・常夜灯・消灯の 4 ボタンで操作（ADR-022）
+- アプリを開かずに操作: ショートカット、Siri、Spotlight、アクションボタン、ホーム / ロック画面のウィジェット、コントロールセンター（App Intents。ADR-023）
 - ESP32 は常時 WebSocket 接続。切断後は 30 秒周期で再接続し、10 分戻れなければ自動で再起動（ADR-021）
 - 外出先からも同じ操作（LAN 直通経路は作らず、クラウド経由のみ。ADR-002）
 
@@ -38,13 +39,13 @@ iPhone → Cloudflare Worker / Durable Object → WebSocket (TLS) → ESP32 → 
 
 | 層 | 主な技術 |
 |---|---|
-| iOS | SwiftUI, Keychain（トークン保管）, XCTest, xcodegen |
+| iOS | SwiftUI, App Intents, WidgetKit（ウィジェット・コントロール）, Keychain（トークン保管・拡張との共有）, XCTest, xcodegen |
 | クラウド | Cloudflare Workers, Durable Objects (SQLite, WebSocket Hibernation, Alarm), TypeScript, wrangler, vitest + `@cloudflare/vitest-pool-workers` |
 | ファーム | arduino-esp32 3.3.11, IRremoteESP8266, arduinoWebSockets, Mozilla CA bundle (`gen_crt_bundle.py`) |
 | ハード | ESP32-WROOM-32, S8050 + 100Ω ×3 で IR LED 駆動（約 36 mA/個）, 回路図は CircuiTikZ |
-| ドキュメント | 設計書, ADR ×22, レビュー記録, 試験記録, 振り返り |
+| ドキュメント | 設計書, ADR ×23, レビュー記録, 試験記録, 振り返り |
 
-テスト: Cloudflare 57 件（純粋関数 + workerd 上の統合）, iOS 15 件, ファームは host 側で `ir_frame.h` の単体テスト。
+テスト: Cloudflare 57 件（純粋関数 + workerd 上の統合）, iOS 24 件, ファームは host 側で `ir_frame.h` の単体テスト。
 
 ## リポジトリ構成
 
@@ -53,7 +54,7 @@ iPhone → Cloudflare Worker / Durable Object → WebSocket (TLS) → ESP32 → 
 | [`cloudflare/`](cloudflare/) | Worker と Durable Object。`encoder.ts` が三菱フレーム生成の中心 |
 | [`firmware/aircon_bridge/`](firmware/aircon_bridge/) | 本番ファーム（状態機械、TLS、Task WDT） |
 | [`firmware/ir_serial_test/`](firmware/ir_serial_test/) | Wi-Fi なしでシリアルから赤外線を出す試験スケッチ |
-| [`ios/AirconRemote/`](ios/AirconRemote/) | SwiftUI アプリ（設定・操作・予約） |
+| [`ios/AirconRemote/`](ios/AirconRemote/) | SwiftUI アプリ（設定・操作・予約）とウィジェット拡張、ショートカット |
 | [`tools/`](tools/) | 赤外線の採取・解析、照明の送信試験、回路電圧の測定、Wi-Fi スキャン用スケッチ |
 | [`docs/`](docs/) | 下記 |
 
@@ -62,7 +63,7 @@ iPhone → Cloudflare Worker / Durable Object → WebSocket (TLS) → ESP32 → 
 | 文書 | 内容 |
 |---|---|
 | [docs/design.md](docs/design.md) | 現行仕様（API、機器プロトコル、フレーム規則、ログ、障害判断表） |
-| [docs/adr.md](docs/adr.md) | 設計判断 ADR-001〜022。なぜその構成にしたか |
+| [docs/adr.md](docs/adr.md) | 設計判断 ADR-001〜023。なぜその構成にしたか |
 | [docs/review-2026-09-13.md](docs/review-2026-09-13.md) | 実装前の設計レビュー 2 往復（17 件） |
 | [docs/implementation-plan.md](docs/implementation-plan.md) | 8 段階の実装計画と通過条件、進行表 |
 | [docs/ir-captures.md](docs/ir-captures.md) | 実機リモコンの赤外線採取と規則の導出 |
