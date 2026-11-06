@@ -83,12 +83,9 @@ struct ContentView: View {
     }
 
     private func send() async {
-        guard let url = config.baseURL, let token = config.token else {
-            outcome = .notConfigured
-            return
-        }
         sending = true
         defer { sending = false }
-        outcome = await APIClient(baseURL: url, token: token).sendCommand(store.setting)
+        // ウィジェットの「最後の操作」も更新するため、共通の入口から送る
+        outcome = await RemoteActions.sendAircon(store.setting)
     }
 }

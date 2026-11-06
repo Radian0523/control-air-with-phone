@@ -57,33 +57,28 @@ struct ScheduleSection: View {
         return Date().addingTimeInterval(5 * 60)
     }
 
-    private func client() -> APIClient? {
-        guard let url = config.baseURL, let token = config.token else { return nil }
-        return APIClient(baseURL: url, token: token)
-    }
-
     private func load() async {
-        guard let client = client() else { return }  // 未設定の案内は操作画面側で出す
+        guard config.isConfigured else { return }  // 未設定の案内は操作画面側で出す
         loading = true; defer { loading = false }
-        switch await client.getSchedule() {
+        switch await RemoteActions.getSchedule() {
         case .ok(let rec): current = rec; message = nil
         case let other: message = other.message
         }
     }
 
     private func save() async {
-        guard let client = client() else { message = ScheduleOutcome<Bool>.notConfigured.message; return }
+        guard config.isConfigured else { message = ScheduleOutcome<Bool>.notConfigured.message; return }
         loading = true; defer { loading = false }
-        switch await client.putSchedule(executeAt: executeAt, setting: store.setting) {
+        switch await RemoteActions.putSchedule(executeAt: executeAt, setting: store.setting) {
         case .ok(let rec): current = rec; message = nil
         case let other: message = other.message
         }
     }
 
     private func cancel() async {
-        guard let client = client() else { return }
+        guard config.isConfigured else { return }
         loading = true; defer { loading = false }
-        switch await client.deleteSchedule() {
+        switch await RemoteActions.deleteSchedule() {
         case .ok: current = nil; message = nil
         case let other: message = other.message
         }
